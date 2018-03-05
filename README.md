@@ -1,2 +1,9 @@
-# otus-python-0218-homework
-My homeworks for "Python Developer" course at otus.ru. Group 2018-02.
+# Python Developer course. 2018-02
+Code samples, study materials, etc.
+
+### Author
+Борзов Олег
+
+slack: Oleg Borzov (olegborzov)
+
+email: mail@olegborzov.ru
