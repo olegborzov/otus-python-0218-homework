@@ -1,5 +1,5 @@
 # Python Developer course. 2018-02
-Code samples, study materials, etc.
+My homeworks
 
 ### Author
 Борзов Олег
