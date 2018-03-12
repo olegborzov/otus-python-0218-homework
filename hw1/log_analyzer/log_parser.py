@@ -36,7 +36,7 @@ def parse_log_line(line):
     """
     log_info = {"url": "", "is_error": True, "request_time": 0}
 
-    parsed_line = re.findall(r"\"[A-Z]+ ([^\s]+) .* (\d+\.\d+)\n", line)
+    parsed_line = re.findall(r"\"[A-Z]+ ([^\s]+) .* (\d+\.\d+)", line)
 
     if not parsed_line:
         return log_info
