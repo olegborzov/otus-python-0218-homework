@@ -101,8 +101,6 @@ def update_ts(ts_dir):
 def main():
     try:
         # 1. Prepare
-        set_logging(None)
-
         config_path = get_config_path_from_args(DEFAULT_CONFIG_PATH)
         config = parse_config(config_path, DEFAULT_CONFIG)
 
