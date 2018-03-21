@@ -1,5 +1,6 @@
 # Custom
 homework/
+*/.htaccess
 
 # Archives
 *.tar
