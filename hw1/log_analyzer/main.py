@@ -10,11 +10,12 @@ from datetime import datetime
 import log_parser
 import log_analyzer
 import report_generator
-import project_exceptions
 
-# log_format ui_short '$remote_addr $remote_user $http_x_real_ip [$time_local] "$request" '
+# log_format ui_short '$remote_addr $remote_user '
+#                     '$http_x_real_ip [$time_local] "$request" '
 #                     '$status $body_bytes_sent "$http_referer" '
-#                     '"$http_user_agent" "$http_x_forwarded_for" "$http_X_REQUEST_ID" "$http_X_RB_USER" '
+#                     '"$http_user_agent" "$http_x_forwarded_for"'
+#                     '"$http_X_REQUEST_ID" "$http_X_RB_USER" '
 #                     '$request_time';
 
 DEFAULT_CONFIG = {
@@ -35,7 +36,8 @@ def get_config_path_from_args(default_config_path):
     :return: path to config file
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", type=str, help="path to config file, example: /home/me/config.json")
+    help_msg = "path to config file, example: /home/me/config.json"
+    parser.add_argument("-c", "--config", type=str, help=help_msg)
     args = parser.parse_args()
 
     config_path = args.config if args.config else default_config_path
@@ -44,25 +46,24 @@ def get_config_path_from_args(default_config_path):
 
 def parse_config(path, default_config):
     """
-    Parse config from json file by path and concatenate with default config
+    Parse config from json file by path
+    and concatenate with default config
     :return: result config
     """
-    try:
-        with open(path) as f:
-            config = json.load(f)
+    with open(path) as f:
+        config = json.load(f)
 
-        assert type(config) is dict
+    if not isinstance(config, dict):
+        raise json.JSONDecodeError("It's not a dict")
 
-        if not config:
-            return default_config
-
-        for k in default_config.keys():
-            if k in config:
-                default_config[k] = config[k]
-
+    if not config:
         return default_config
-    except (json.JSONDecodeError, FileNotFoundError, AssertionError) as ex:
-        raise project_exceptions.ParseConfigError(ex)
+
+    for k in default_config.keys():
+        if k in config:
+            default_config[k] = config[k]
+
+    return default_config
 
 
 def set_logging(log_dir):
@@ -72,7 +73,9 @@ def set_logging(log_dir):
     log_file = None
 
     if log_dir and os.access(log_dir, os.W_OK):
-        log_file_name = datetime.now().strftime("log_analyzer_%Y%m%d_%H%M%S.log")
+        log_file_name = datetime.now().strftime(
+            "log_analyzer_%Y%m%d_%H%M%S.log"
+        )
         log_file = os.path.join(log_dir, log_file_name)
 
     logging.basicConfig(
@@ -101,6 +104,8 @@ def update_ts(ts_dir):
 def main():
     try:
         # 1. Prepare
+        set_logging(None)
+
         config_path = get_config_path_from_args(DEFAULT_CONFIG_PATH)
         config = parse_config(config_path, DEFAULT_CONFIG)
 
@@ -109,36 +114,55 @@ def main():
         # 2. Parse log
         last_log_file_info = log_parser.get_newest_log_file(config["LOG_DIR"])
         if not last_log_file_info["filepath"]:
-            logging.info("No log file found in dir {}".format(config["LOG_DIR"]))
+            log_msg = "No log file found in dir {}"
+            logging.info(log_msg.format(
+                config["LOG_DIR"])
+            )
             return
 
-        if report_generator.report_by_date_exists(last_log_file_info["date"], config["REPORT_DIR"]):
-            logging.info("Report for {} already exists".format(last_log_file_info["date"]))
+        if report_generator.report_by_date_exists(
+                last_log_file_info["date"], config["REPORT_DIR"]
+        ):
+            log_msg = "Report for {} already exists"
+            logging.info(log_msg.format(
+                last_log_file_info["date"])
+            )
             return
 
         log_urls = log_parser.parse_log_file(last_log_file_info["filepath"])
         if not log_urls:
-            logging.info("Log file ({}) is empty".format(last_log_file_info["filepath"]))
+            log_msg = "Log file ({}) is empty"
+            logging.info(log_msg.format(
+                last_log_file_info["filepath"])
+            )
             return
-        logging.info("Parsed {lines} lines, {urls} urls from log file".format(
+
+        log_msg = "Parsed {lines} lines, {urls} urls from log file"
+        logging.info(log_msg.format(
             lines=log_analyzer.calc_log_rows_count(log_urls),
             urls=len(log_urls["urls_times"])
         ))
 
         # 3. Analyze log
-        report_list = log_analyzer.analyze_log(log_urls, config["MAX_LOG_ERRORS_PERCENT"], config["REPORT_SIZE"])
-        logging.info("Log has been analyzed")
+        report_list = log_analyzer.analyze_log(
+            log_urls, config["MAX_LOG_ERRORS_PERCENT"], config["REPORT_SIZE"]
+        )
+        log_msg = "Log has been analyzed"
+        logging.info(log_msg)
 
         # 4. Generate report
-        report_path = report_generator.save_report_html(report_list, last_log_file_info["date"], config["REPORT_DIR"])
+        report_path = report_generator.save_report_html(
+            report_list, last_log_file_info["date"], config["REPORT_DIR"]
+        )
 
         update_ts(config["TS_DIR"])
 
-        logging.info("Log file ({log_path}) parsed succesfully. Created report file - {report_path}".format(
+        log_msg = "Log file ({log_path}) parsed succesfully. " \
+                  "Created report file - {report_path}"
+        logging.info(log_msg.format(
             log_path=last_log_file_info["filepath"],
             report_path=report_path
         ))
-        # 4. TODO: Write tests
     except Exception as ex:
         msg = "{0}: {1}".format(type(ex).__name__, ex)
         logging.exception(msg, exc_info=True)
