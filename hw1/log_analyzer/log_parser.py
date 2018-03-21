@@ -12,20 +12,31 @@ def parse_log_file(log_path):
     Parse log file and prepare dict for analyze
     """
     is_gzipped = log_path.endswith(".gz")
-    opener = gzip.open(log_path, "r") if is_gzipped else open(log_path, "r", encoding="UTF-8")
+
+    if is_gzipped:
+        opener = gzip.open(log_path, "r")
+    else:
+        opener = open(log_path, "r", encoding="UTF-8")
 
     log_urls = {"errors": 0, "urls_times": {}}
+
     with opener:
         for line in opener:
+
             if is_gzipped:
                 line = line.decode("UTF-8")
+
             line_parsed = parse_log_line(line)
+
             if line_parsed["is_error"]:
                 log_urls["errors"] += 1
             else:
                 if line_parsed["url"] not in log_urls["urls_times"]:
                     log_urls["urls_times"][line_parsed["url"]] = []
-                log_urls["urls_times"][line_parsed["url"]].append(line_parsed["request_time"])
+
+                log_urls["urls_times"][line_parsed["url"]].append(
+                    line_parsed["request_time"]
+                )
 
     return log_urls
 
@@ -36,7 +47,8 @@ def parse_log_line(line):
     """
     log_info = {"url": "", "is_error": True, "request_time": 0}
 
-    parsed_line = re.findall(r"\"[A-Z]+ ([^\s]+) .* (\d+\.\d+)", line)
+    regex = re.compile(r"\"[A-Z]+ ([^\s]+) .* (\d+\.\d+)\n")
+    parsed_line = re.findall(regex, line)
 
     if not parsed_line:
         return log_info
@@ -77,10 +89,15 @@ def get_log_file_date(filename):
     Get date from log filename
     """
     log_date = None
+
     try:
-        log_date_str = re.findall(r"nginx-access-ui\.log-(\d{8})(\.gz)?", filename)
+        regex = re.compile(r"nginx-access-ui\.log-(\d{8})(\.gz)?")
+        log_date_str = re.findall(regex, filename)
+
         if log_date_str:
-            log_date = datetime.strptime(log_date_str[0][0], "%Y%m%d").date()
+            log_date = datetime.strptime(
+                log_date_str[0][0], "%Y%m%d"
+            ).date()
 
         return log_date
     except ValueError:

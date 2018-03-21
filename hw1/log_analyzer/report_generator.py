@@ -40,7 +40,9 @@ def compare_report_date_with_log_date(filename, log_date):
     Check if date from report filename and log_date are equal
     """
     report_date = None
-    report_date_str = re.findall(r"report-(\d{4}\.\d{2}\.\d{2})\.html", filename)
+
+    regex = re.compile(r"report-(\d{4}\.\d{2}\.\d{2})\.html")
+    report_date_str = re.findall(regex, filename)
     if report_date_str:
         report_date = datetime.strptime(report_date_str[0], "%Y.%m.%d").date()
 

@@ -1,6 +1,12 @@
 # Custom
 homework/
 
+# Archives
+*.tar
+*.gz
+*.zip
+*.rar
+
 # Byte-compiled / optimized / DLL files
 *__pycache__/
 *.idea/
