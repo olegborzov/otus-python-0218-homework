@@ -1,0 +1,103 @@
+From c22f1dea110e47ca7f8f666c7aa0f6e2cbd1af4e Mon Sep 17 00:00:00 2001
+From: Borzov Oleg <mail@olegborzov.ru>
+Date: Sat, 24 Mar 2018 15:54:21 +0000
+Subject: [PATCH] Added new opcode LOAD_OTUS
+
+---
+ Include/opcode.h        |  2 +-
+ Lib/opcode.py           |  1 +
+ Python/ceval.c          | 19 ++++++++++++++++++-
+ Python/opcode_targets.h |  2 +-
+ Python/peephole.c       |  7 +++++++
+ 5 files changed, 28 insertions(+), 3 deletions(-)
+
+diff --git a/Include/opcode.h b/Include/opcode.h
+index 9ed5487..980e30b 100644
+--- a/Include/opcode.h
++++ b/Include/opcode.h
+@@ -158,7 +158,7 @@ extern "C" {
+ 
+ #define SET_ADD         146
+ #define MAP_ADD         147
+-
++#define LOAD_OTUS       148
+ 
+ enum cmp_op {PyCmp_LT=Py_LT, PyCmp_LE=Py_LE, PyCmp_EQ=Py_EQ, PyCmp_NE=Py_NE, PyCmp_GT=Py_GT, PyCmp_GE=Py_GE,
+ 	     PyCmp_IN, PyCmp_NOT_IN, PyCmp_IS, PyCmp_IS_NOT, PyCmp_EXC_MATCH, PyCmp_BAD};
+diff --git a/Lib/opcode.py b/Lib/opcode.py
+index e403365..d2a1229 100644
+--- a/Lib/opcode.py
++++ b/Lib/opcode.py
+@@ -188,5 +188,6 @@ def_op('EXTENDED_ARG', 145)
+ EXTENDED_ARG = 145
+ def_op('SET_ADD', 146)
+ def_op('MAP_ADD', 147)
++def_op('LOAD_OTUS', 148)
+ 
+ del def_op, name_op, jrel_op, jabs_op
+diff --git a/Python/ceval.c b/Python/ceval.c
+index b55b4d6..edd3060 100644
+--- a/Python/ceval.c
++++ b/Python/ceval.c
+@@ -1239,9 +1239,26 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
+             PUSH(x);
+             FAST_DISPATCH();
+         }
++	
++	TARGET(LOAD_OTUS)
++	{
++	    x = GETLOCAL(0);
++	    if (x != NULL) {
++		Py_INCREF(x);
++		PUSH(x);
++		x = GETITEM(consts, oparg);
++		Py_INCREF(x);
++		PUSH(x);
++		FAST_DISPATCH();
++	    }
++	    format_exc_check_arg(PyExc_UnboundLocalError,
++            	UNBOUNDLOCAL_ERROR_MSG,
++	    	PyTuple_GetItem(co->co_varnames, oparg));
++	    break;
++	}
+ 
+         PREDICTED_WITH_ARG(STORE_FAST);
+-        TARGET(STORE_FAST)
++	TARGET(STORE_FAST)
+         {
+             v = POP();
+             SETLOCAL(oparg, v);
+diff --git a/Python/opcode_targets.h b/Python/opcode_targets.h
+index 95eb127..8c29b98 100644
+--- a/Python/opcode_targets.h
++++ b/Python/opcode_targets.h
+@@ -147,7 +147,7 @@ static void *opcode_targets[256] = {
+     &&TARGET_EXTENDED_ARG,
+     &&TARGET_SET_ADD,
+     &&TARGET_MAP_ADD,
+-    &&_unknown_opcode,
++    &&TARGET_LOAD_OTUS,
+     &&_unknown_opcode,
+     &&_unknown_opcode,
+     &&_unknown_opcode,
+diff --git a/Python/peephole.c b/Python/peephole.c
+index 11f6f88..76b173a 100644
+--- a/Python/peephole.c
++++ b/Python/peephole.c
+@@ -424,6 +424,13 @@ PyCode_Optimize(PyObject *code, PyObject* consts, PyObject *names,
+                 memset(codestr+i, NOP, 6);
+                 cumlc = 0;
+                 break;
++	    case LOAD_FAST:
++		j = GETARG(codestr, i);
++		if (codestr[i+3] == LOAD_CONST && j == 0) {
++		    codestr[i+3] = LOAD_OTUS;
++		    memset(codestr+i, NOP, 3);
++		}
++		break;
+ 
+                 /* Try to fold tuples of constants (includes a case for lists
+                    which are only used for "in" and "not in" tests).
+-- 
+1.8.3.1
+
