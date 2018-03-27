@@ -230,8 +230,8 @@ class ClientIDsField(Field):
         if not value:
             raise ValueError(self.errors['invalid_value_len'])
 
-        for el in value:
-            if not isinstance(el, int):
+        for elem in value:
+            if not isinstance(elem, int):
                 raise ValueError(self.errors['invalid_value'])
 
 
@@ -305,7 +305,6 @@ class ClientsInterestsRequest(AbstractRequest):
         Return user's interests for list of ids
         """
         context["nclients"] = len(self.client_ids)
-
         result = {}
         for cid in self.client_ids:
             result[str(cid)] = scoring.get_interests(store=store, cid=cid)
@@ -439,15 +438,24 @@ def method_handler(request, context, store):
 
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
+    """
+    HTTP Server for processing POST requests
+    """
     router = {
         "method": method_handler
     }
     store = None
 
     def get_request_id(self, headers):
+        """
+        Return request id from headers
+        """
         return headers.get('HTTP_X_REQUEST_ID', uuid.uuid4().hex)
 
     def do_POST(self):
+        """
+        POST requests processing
+        """
         response, code = {}, OK
         context = {"request_id": self.get_request_id(self.headers)}
         request = None
