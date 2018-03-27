@@ -239,11 +239,6 @@ class AbstractRequest(metaclass=abc.ABCMeta):
     """
     AbstractRequest with defined iint
     """
-    error_msgs = {
-        "required": "Field {} is required",
-        "nullable": "Field {} can't be empty",
-        "unexpected": "Field {} is unexpected"
-    }
 
     def __init__(self, **kwargs):
         """
@@ -251,7 +246,11 @@ class AbstractRequest(metaclass=abc.ABCMeta):
         Copies declarative classes to self.fields_classes
         and deletes them from attributes
         """
-
+        self.error_msgs = {
+            "required": "Field {} is required",
+            "nullable": "Field {} can't be empty",
+            "unexpected": "Field {} is unexpected"
+        }
         self.errors = {}
         self.field_classes = {}
         for field_name in dir(self):
