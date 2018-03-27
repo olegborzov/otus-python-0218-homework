@@ -44,7 +44,7 @@ class Field(metaclass=abc.ABCMeta):
     """
 
     def __init__(self, required=False, nullable=False):
-        self.errors = {
+        self.error_msgs = {
             'required': 'This field is required.',
             'nullable': "This field can't be null"
         }
@@ -64,13 +64,13 @@ class CharField(Field):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_type': 'Value type must be str'
         })
 
     def validate(self, value):
         if not isinstance(value, str):
-            raise TypeError(self.errors["invalid_type"])
+            raise TypeError(self.error_msgs["invalid_type"])
 
 
 class ArgumentsField(Field):
@@ -82,13 +82,13 @@ class ArgumentsField(Field):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_type': 'Value type must be dict'
         })
 
     def validate(self, value):
         if not isinstance(value, dict):
-            raise TypeError(self.errors["invalid_type"])
+            raise TypeError(self.error_msgs["invalid_type"])
 
 
 class EmailField(CharField):
@@ -100,14 +100,14 @@ class EmailField(CharField):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_value': 'Value must contain @ symbol'
         })
 
     def validate(self, value):
         super().validate(value)
         if "@" not in value:
-            raise ValueError(self.errors['invalid_value'])
+            raise ValueError(self.error_msgs['invalid_value'])
 
 
 class PhoneField(Field):
@@ -120,7 +120,7 @@ class PhoneField(Field):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_type': "Value type must be str or int",
             'invalid_value': "Value must start with 7",
             'invalid_value_len': "Length of value must be 11 characters"
@@ -128,14 +128,14 @@ class PhoneField(Field):
 
     def validate(self, value):
         if not isinstance(value, (int, str)):
-            raise TypeError(self.errors['invalid_type'])
+            raise TypeError(self.error_msgs['invalid_type'])
 
         value_str = str(value)
         if len(value_str) != 11:
-            raise ValueError(self.errors['invalid_value_len'])
+            raise ValueError(self.error_msgs['invalid_value_len'])
 
         if not value_str.startswith("7"):
-            raise ValueError(self.errors['invalid_value'])
+            raise ValueError(self.error_msgs['invalid_value'])
 
 
 class DateField(CharField):
@@ -147,7 +147,7 @@ class DateField(CharField):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_format': "Value format must be DD.MM.YYYY"
         })
 
@@ -159,7 +159,7 @@ class DateField(CharField):
         try:
             self._to_datetime(value)
         except (TypeError, ValueError):
-            raise ValueError(self.errors['invalid_format'])
+            raise ValueError(self.error_msgs['invalid_format'])
 
 
 class BirthDayField(DateField):
@@ -172,7 +172,7 @@ class BirthDayField(DateField):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_year': "Age must be less than 70 years"
         })
 
@@ -182,7 +182,7 @@ class BirthDayField(DateField):
         now = datetime.datetime.now()
         age = (now - self._to_datetime(value)).days / 365
         if not (0 < age <= 70):
-            raise ValueError(self.errors['invalid_year'])
+            raise ValueError(self.error_msgs['invalid_year'])
 
 
 class GenderField(Field):
@@ -194,17 +194,17 @@ class GenderField(Field):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_type': "Value type must be int",
             'invalid_value': "Value must be 0, 1 or 2"
         })
 
     def validate(self, value):
         if not isinstance(value, int):
-            raise TypeError(self.errors['invalid_type'])
+            raise TypeError(self.error_msgs['invalid_type'])
 
         if value not in GENDERS:
-            raise ValueError(self.errors['invalid_value'])
+            raise ValueError(self.error_msgs['invalid_value'])
 
 
 class ClientIDsField(Field):
@@ -217,7 +217,7 @@ class ClientIDsField(Field):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.errors.update({
+        self.error_msgs.update({
             'invalid_type': "Value type must be list",
             'invalid_value': "Type of elements of list must be int",
             'invalid_value_len': "Value mustn't be empty"
@@ -225,14 +225,14 @@ class ClientIDsField(Field):
 
     def validate(self, value):
         if not isinstance(value, list):
-            raise TypeError(self.errors['invalid_type'])
+            raise TypeError(self.error_msgs['invalid_type'])
 
         if not value:
-            raise ValueError(self.errors['invalid_value_len'])
+            raise ValueError(self.error_msgs['invalid_value_len'])
 
         for elem in value:
             if not isinstance(elem, int):
-                raise ValueError(self.errors['invalid_value'])
+                raise ValueError(self.error_msgs['invalid_value'])
 
 
 class AbstractRequest(metaclass=abc.ABCMeta):
