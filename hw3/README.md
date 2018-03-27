@@ -2,6 +2,10 @@
 Implementation of the declarative language of description 
 and the system of validating requests to the HTTP service API scoring.
 
+### Requirements
+Python 3+ version required.
+No external packages are needed.
+
 ### How to run: 
 Print in terminal:
 ```
