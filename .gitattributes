@@ -5,3 +5,4 @@
 *.ts linguist-detectable=false
 *.xml linguist-detectable=false
 *.md linguist-detectable=false
+*.patch linguist-detectable=false
