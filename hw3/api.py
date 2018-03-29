@@ -357,11 +357,12 @@ class OnlineScoreRequest(AbstractRequest):
         """
         Return user's score, calculated by given fields
         """
-        context["has"] = [
+        filled_field_names = [
             field_name
             for field_name in self.field_classes.keys()
             if getattr(self, field_name, None)
         ]
+        context["has"] = ", ".join(filled_field_names)
 
         if is_admin:
             result = 42
