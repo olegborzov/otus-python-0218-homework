@@ -314,7 +314,7 @@ class ClientsInterestsRequest(AbstractRequest):
 
 class OnlineScoreRequest(AbstractRequest):
     """
-    Handler for method online_Score.
+    Handler for method online_score.
     """
     first_name = CharField(required=False, nullable=True)
     last_name = CharField(required=False, nullable=True)
@@ -351,15 +351,17 @@ class OnlineScoreRequest(AbstractRequest):
                 is_valid = True
 
         if not is_valid:
-            msg = ValueError(self.error_msgs["invalid_pairs"])
-            self.errors["bad_pairs"] = msg
+            self.errors["invalid_pairs"] = self.error_msgs["invalid_pairs"]
 
     def get_answer(self, store, context, is_admin):
         """
         Return user's score, calculated by given fields
         """
-        context["has"] = len([1 for f_name in self.field_classes.keys()
-                          if getattr(self, f_name, None)])
+        context["has"] = [
+            field_name
+            for field_name in self.field_classes.keys()
+            if getattr(self, field_name, None)
+        ]
 
         if is_admin:
             result = 42
@@ -432,7 +434,7 @@ def method_handler(request, context, store):
     handler = handlers[methodrequest.method](**methodrequest.arguments)
     handler.validate()
     if handler.errors:
-        return handler.errors, INTERNAL_ERROR
+        return handler.errors, INVALID_REQUEST
 
     return handler.get_answer(store, context, methodrequest.is_admin), OK
 
