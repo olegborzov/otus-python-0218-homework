@@ -1,6 +1,7 @@
 # Custom
 homework/
 */.htaccess
+*.DS_Store
 
 # Archives
 *.tar
