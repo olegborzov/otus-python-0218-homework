@@ -3,13 +3,15 @@
 import abc
 import json
 import datetime
+from dateutil.relativedelta import relativedelta
 import logging
 import hashlib
+import re
 import uuid
 from optparse import OptionParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-import scoring
+from . import scoring
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -148,7 +150,8 @@ class DateField(CharField):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.error_msgs.update({
-            'invalid_format': "Value format must be DD.MM.YYYY"
+            'invalid_format': "Value format must be DD.MM.YYYY",
+            'invalid_date': "Value must be valid date",
         })
 
     def _to_datetime(self, value):
@@ -156,10 +159,14 @@ class DateField(CharField):
 
     def validate(self, value):
         super().validate(value)
+
+        if not re.match(r"\d{2}\.\d{2}.\d{4}", value):
+            raise ValueError(self.error_msgs['invalid_format'])
+
         try:
             self._to_datetime(value)
         except (TypeError, ValueError):
-            raise ValueError(self.error_msgs['invalid_format'])
+            raise ValueError(self.error_msgs['invalid_date'])
 
 
 class BirthDayField(DateField):
@@ -173,16 +180,22 @@ class BirthDayField(DateField):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.error_msgs.update({
-            'invalid_year': "Age must be less than 70 years"
+            'invalid_year': "Age must be less than 70 years",
+            'future_date': "Date mustn't be in the future"
         })
 
     def validate(self, value):
         super().validate(value)
 
         now = datetime.datetime.now()
-        age = (now - self._to_datetime(value)).days / 365
-        if not (0 < age <= 70):
+        date_value = self._to_datetime(value)
+        delta = relativedelta(now, date_value)
+        years_delta = delta.years
+        if not (0 <= years_delta < 70):
             raise ValueError(self.error_msgs['invalid_year'])
+
+        if now < date_value:
+            raise ValueError(self.error_msgs['future_date'])
 
 
 class GenderField(Field):
