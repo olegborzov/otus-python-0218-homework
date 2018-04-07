@@ -8,7 +8,7 @@ def get_score(store, phone, email, birthday=None, gender=None, first_name=None, 
         last_name or "",
         birthday.strftime("%Y%m%d") if birthday is not None else "",
     ]
-    key = "uid:" + hashlib.md5("".join(key_parts)).hexdigest()
+    key = "uid:" + hashlib.md5("".join(key_parts).encode()).hexdigest()
     # try get from cache,
     # fallback to heavy calculation in case of cache miss
     score = store.cache_get(key) or 0

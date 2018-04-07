@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 
 import pytest
 
-from .. import api
+from scoring_api import api
 
 
 class TestCharField(object):
@@ -49,7 +49,8 @@ class TestEmailField(object):
         "a@a.ru",
         "@a",
         "a@",
-        "@"
+        "@",
+        ""
     ])
     def test_valid_value(self, value):
         api.EmailField().validate(value)
@@ -67,17 +68,14 @@ class TestEmailField(object):
         with pytest.raises(ValueError, message='Value must contain @ symbol'):
             api.EmailField().validate("bad_email")
 
-    def test_not_valid_empty_str(self):
-        with pytest.raises(ValueError, message='Value must contain @ symbol'):
-            api.EmailField().validate("")
-
 
 class TestPhoneField(object):
     @pytest.mark.parametrize("value", [
         70123456789,
         "70123456789",
         "7----------",
-        "7-1-3-5-7-9"
+        "7-1-3-5-7-9",
+        ""
     ])
     def test_valid_value(self, value):
         api.PhoneField().validate(value)
@@ -115,6 +113,7 @@ class TestDateField(object):
         "03.04.2018",
         "01.01.1000",
         "31.12.9999",
+        ""
     ])
     def test_valid_value(self, value):
         api.DateField().validate(value)
@@ -155,6 +154,8 @@ class TestDateField(object):
 
 class TestBirthDayField(object):
     def test_valid_value(self):
+        api.BirthDayField().validate("")
+
         yesterday = (date.today() - relativedelta(days=1))
         api.BirthDayField().validate(yesterday.strftime("%d.%m.%Y"))
 
@@ -239,6 +240,7 @@ class TestClientIDsField(object):
     @pytest.mark.parametrize("value", [
         [1],
         [1, 2, 3],
+        []
     ])
     def test_valid_value(self, value):
         api.ClientIDsField().validate(value)
@@ -251,13 +253,6 @@ class TestClientIDsField(object):
         ((1, 2, 3), TypeError, 'Value type must be list'),
     ])
     def test_not_valid_type(self, value, exc_type, exc_msg):
-        with pytest.raises(exc_type, message=exc_msg):
-            api.ClientIDsField().validate(value)
-
-    @pytest.mark.parametrize("value,exc_type,exc_msg", [
-        ([], ValueError, "Value mustn't be empty"),
-    ])
-    def test_empty_list(self, value, exc_type, exc_msg):
         with pytest.raises(exc_type, message=exc_msg):
             api.ClientIDsField().validate(value)
 
