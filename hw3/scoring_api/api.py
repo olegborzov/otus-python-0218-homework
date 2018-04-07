@@ -11,7 +11,7 @@ import uuid
 from optparse import OptionParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from . import scoring
+from scoring_api import scoring
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -57,6 +57,13 @@ class Field(metaclass=abc.ABCMeta):
     def validate(self, value):
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def is_empty(self, value):
+        raise NotImplementedError
+
+    def prepare(self, value):
+        return value
+
 
 class CharField(Field):
     """
@@ -73,6 +80,9 @@ class CharField(Field):
     def validate(self, value):
         if not isinstance(value, str):
             raise TypeError(self.error_msgs["invalid_type"])
+
+    def is_empty(self, value):
+        return not value
 
 
 class ArgumentsField(Field):
@@ -92,6 +102,9 @@ class ArgumentsField(Field):
         if not isinstance(value, dict):
             raise TypeError(self.error_msgs["invalid_type"])
 
+    def is_empty(self, value):
+        return not value
+
 
 class EmailField(CharField):
     """
@@ -108,8 +121,14 @@ class EmailField(CharField):
 
     def validate(self, value):
         super().validate(value)
+        if self.is_empty(value):
+            return
+
         if "@" not in value:
             raise ValueError(self.error_msgs['invalid_value'])
+
+    def is_empty(self, value):
+        return not value
 
 
 class PhoneField(Field):
@@ -132,12 +151,18 @@ class PhoneField(Field):
         if not isinstance(value, (int, str)):
             raise TypeError(self.error_msgs['invalid_type'])
 
+        if self.is_empty(value):
+            return
+
         value_str = str(value)
         if len(value_str) != 11:
             raise ValueError(self.error_msgs['invalid_value_len'])
 
         if not value_str.startswith("7"):
             raise ValueError(self.error_msgs['invalid_value'])
+
+    def is_empty(self, value):
+        return not value
 
 
 class DateField(CharField):
@@ -160,6 +185,9 @@ class DateField(CharField):
     def validate(self, value):
         super().validate(value)
 
+        if self.is_empty(value):
+            return
+
         if not re.match(r"\d{2}\.\d{2}.\d{4}", value):
             raise ValueError(self.error_msgs['invalid_format'])
 
@@ -167,6 +195,12 @@ class DateField(CharField):
             self._to_datetime(value)
         except (TypeError, ValueError):
             raise ValueError(self.error_msgs['invalid_date'])
+
+    def is_empty(self, value):
+        return not value
+
+    def prepare(self, value):
+        return self._to_datetime(value)
 
 
 class BirthDayField(DateField):
@@ -187,6 +221,9 @@ class BirthDayField(DateField):
     def validate(self, value):
         super().validate(value)
 
+        if self.is_empty(value):
+            return
+
         now = datetime.datetime.now()
         date_value = self._to_datetime(value)
         delta = relativedelta(now, date_value)
@@ -196,6 +233,9 @@ class BirthDayField(DateField):
 
         if now < date_value:
             raise ValueError(self.error_msgs['future_date'])
+
+    def is_empty(self, value):
+        return not value
 
 
 class GenderField(Field):
@@ -216,8 +256,14 @@ class GenderField(Field):
         if not isinstance(value, int):
             raise TypeError(self.error_msgs['invalid_type'])
 
+        if self.is_empty(value):
+            return
+
         if value not in GENDERS:
             raise ValueError(self.error_msgs['invalid_value'])
+
+    def is_empty(self, value):
+        return False
 
 
 class ClientIDsField(Field):
@@ -233,37 +279,41 @@ class ClientIDsField(Field):
         self.error_msgs.update({
             'invalid_type': "Value type must be list",
             'invalid_value': "Type of elements of list must be int",
-            'invalid_value_len': "Value mustn't be empty"
         })
 
     def validate(self, value):
         if not isinstance(value, list):
             raise TypeError(self.error_msgs['invalid_type'])
 
-        if not value:
-            raise ValueError(self.error_msgs['invalid_value_len'])
+        if self.is_empty(value):
+            return
 
         for elem in value:
             if not isinstance(elem, int):
                 raise ValueError(self.error_msgs['invalid_value'])
+
+    def is_empty(self, value):
+        return not value
 
 
 class AbstractRequest(metaclass=abc.ABCMeta):
     """
     AbstractRequest with defined iint
     """
-
     def __init__(self, **kwargs):
         """
         Request init.
         Copies declarative classes to self.fields_classes
         and deletes them from attributes
         """
-        self.error_msgs = {
+        if not hasattr(self, 'error_msgs'):
+            self.error_msgs = {}
+        self.error_msgs.update({
             "required": "Field {} is required",
             "nullable": "Field {} can't be empty",
             "unexpected": "Field {} is unexpected"
-        }
+        })
+
         self.errors = {}
         self.field_classes = {}
         for field_name in dir(self):
@@ -275,6 +325,17 @@ class AbstractRequest(metaclass=abc.ABCMeta):
         # Set object attributes by args
         for field_name, field_value in kwargs.items():
             setattr(self, field_name, field_value)
+
+        self.validate()
+
+        # Set prepared fields values if they are valid
+        if not self.errors:
+            for field_name in dir(self):
+                if field_name in self.field_classes:
+                    prepared_value = self.field_classes[field_name].prepare(
+                        getattr(self, field_name)
+                    )
+                    setattr(self, field_name, prepared_value)
 
     def validate(self):
         """
@@ -337,18 +398,20 @@ class OnlineScoreRequest(AbstractRequest):
     gender = GenderField(required=False, nullable=True)
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
         self.field_pairs = [
             ("phone", "email"),
             ("first_name", "last_name"),
             ("gender", "birthday")
         ]
         pairs_str = ", ".join(["(%s, %s)" % pair for pair in self.field_pairs])
+        if not hasattr(self, 'error_msgs'):
+            self.error_msgs = {}
         self.error_msgs.update({
             "invalid_pairs": "Request must have at least one pair "
                              "with non-empty values of: {}".format(pairs_str)
         })
+
+        super().__init__(**kwargs)
 
     def validate(self):
         """
@@ -360,8 +423,17 @@ class OnlineScoreRequest(AbstractRequest):
 
         is_valid = False
         for pair in self.field_pairs:
-            if getattr(self, pair[0], None) and getattr(self, pair[1], None):
+            field_1_value = getattr(self, pair[0], None)
+            field_1_empty = self.field_classes[pair[0]].is_empty(field_1_value)
+            field_1_empty = field_1_value is None or field_1_empty
+
+            field_2_value = getattr(self, pair[1], None)
+            field_2_empty = self.field_classes[pair[1]].is_empty(field_2_value)
+            field_2_empty = field_1_value is None or field_2_empty
+
+            if not(field_1_empty or field_2_empty):
                 is_valid = True
+                break
 
         if not is_valid:
             self.errors["invalid_pairs"] = self.error_msgs["invalid_pairs"]
@@ -423,6 +495,11 @@ def method_handler(request, context, store):
     """
     Handle request.
     Validate arguments and return result or error
+
+    :param request: {"body": request (dict), "headers": headers (dict)}
+    :param context: dict
+    :param store: object
+    :return: Answer (errors_dict if error), Code
     """
     handlers = {
         "online_score": OnlineScoreRequest,
@@ -431,7 +508,6 @@ def method_handler(request, context, store):
 
     # 1. Validate MethodRequest args
     methodrequest = MethodRequest(**request["body"])
-    methodrequest.validate()
     if methodrequest.errors:
         return methodrequest.errors, INVALID_REQUEST
 
@@ -446,7 +522,6 @@ def method_handler(request, context, store):
 
     # 4. Validate handler args
     handler = handlers[methodrequest.method](**methodrequest.arguments)
-    handler.validate()
     if handler.errors:
         return handler.errors, INVALID_REQUEST
 
