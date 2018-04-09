@@ -15,6 +15,13 @@ cd %path_to_module_dir%
 python3 api.py
 ```
 
+### How to run tests: 
+Print in terminal:
+```
+cd %path_to_module_dir%
+pytest
+```
+
 ### Request samples
 Sample for _online_score_ method:
 ```
