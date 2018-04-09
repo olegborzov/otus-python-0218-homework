@@ -6,6 +6,7 @@ from datetime import datetime
 import pytest
 
 from scoring_api import api
+from scoring_api.store import Store
 
 
 # -----------
@@ -21,25 +22,25 @@ def get_token(is_admin=False, account="account", login="login"):
     return hashlib.sha512(digest.encode()).hexdigest()
 
 
-class StoreMock:
-    def __init__(self, is_available=True):
-        self.is_available = is_available
+class StorageMock:
+    def __init__(self, min_attempts=0):
+        self.min_attempts = min_attempts
+        self.attempts = 0
         self.store = {}
 
+    def reconnect(self):
+        self.attempts += 1
+
     def get(self, key):
-        if self.is_available:
+        if self.attempts >= self.min_attempts:
             return self.store.get(key, None)
-        raise RuntimeError
+        raise ConnectionError
 
-    def cache_get(self, key):
-        if self.is_available:
-            return self.store.get(key, None)
-
-        return None
-
-    def cache_set(self, key, value, expires=0):
-        if self.is_available:
+    def set(self, key, value, expires=0):
+        if self.attempts >= self.min_attempts:
             self.store[key] = value
+            return True
+        raise ConnectionError
 
 
 # -----------
@@ -197,12 +198,32 @@ class TestMethodHandler:
 
     @pytest.mark.parametrize("is_admin", [True, False])
     @pytest.mark.parametrize("method", ["online_score", "clients_interests"])
-    def test_valid_requests(self, is_admin, method):
+    @pytest.mark.parametrize("attempts", [0, 3, 5])
+    def test_valid_requests(self, is_admin, method, attempts):
         request = self.get_valid_args(is_admin, method)
-        store = StoreMock(is_available=True)
+        storage_mock = StorageMock(min_attempts=attempts)
+        store = Store(storage_mock)
 
         _, code = self.get_response(request, store)
         assert code == api.OK
+
+    @pytest.mark.parametrize("attempts", [6, 8])
+    def test_online_score_with_not_available_store(self, attempts):
+        request = self.get_valid_args(True, "online_score")
+        storage_mock = StorageMock(min_attempts=attempts)
+        store = Store(storage_mock)
+
+        _, code = self.get_response(request, store)
+        assert code == api.OK
+
+    @pytest.mark.parametrize("attempts", [6, 8])
+    def test_clients_interests_with_not_available_store(self, attempts):
+        request = self.get_valid_args(True, "clients_interests")
+        storage_mock = StorageMock(min_attempts=attempts)
+        store = Store(storage_mock)
+
+        with pytest.raises(ConnectionError):
+            self.get_response(request, store)
 
     def test_empty_request(self):
         _, code = self.get_response({})
@@ -254,18 +275,4 @@ class TestMethodHandler:
 
         _, code = self.get_response(request)
         assert code == api.INVALID_REQUEST
-
-    def test_online_score_with_not_available_store(self):
-        request = self.get_valid_args(True, "online_score")
-        store = StoreMock(is_available=False)
-
-        _, code = self.get_response(request, store)
-        assert code == api.OK
-
-    def test_clients_interests_with_not_available_store(self):
-        request = self.get_valid_args(True, "clients_interests")
-        store = StoreMock(is_available=False)
-
-        with pytest.raises(RuntimeError):
-            self.get_response(request, store)
 

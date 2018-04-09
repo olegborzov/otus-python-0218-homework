@@ -12,6 +12,7 @@ from optparse import OptionParser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from scoring_api import scoring
+from scoring_api import store
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -38,6 +39,8 @@ GENDERS = {
     MALE: "male",
     FEMALE: "female",
 }
+
+MAX_RETRIES = 6
 
 
 class Field(metaclass=abc.ABCMeta):
@@ -535,7 +538,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
         "method": method_handler
     }
-    store = None
+    store = store.Store(store.RedisStorage(), MAX_RETRIES)
 
     def get_request_id(self, headers):
         """
