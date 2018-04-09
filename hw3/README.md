@@ -3,7 +3,7 @@ Implementation of the declarative language of description
 and the system of validating requests to the HTTP service API scoring.
 
 ### Requirements
-Python 3+ version required.
+Python 3+ version required.<br>
 Needed python packages:
  - redis (for storage)
  - pytest (for tests)
