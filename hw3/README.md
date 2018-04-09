@@ -4,7 +4,9 @@ and the system of validating requests to the HTTP service API scoring.
 
 ### Requirements
 Python 3+ version required.
-No external packages are needed.
+Needed python packages:
+ - redis (for storage)
+ - pytest (for tests)
 
 ### How to run: 
 Print in terminal:
