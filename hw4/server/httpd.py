@@ -1,9 +1,4 @@
-# Examples:
-# https://github.com/Nikolay-Lysenko/otus-python-2018-02/blob/master/otus_python_homeworks/hw_4/httpd.py
-# https://gist.github.com/joncardasis/cc67cfb160fa61a0457d6951eff2aeae
-# TODO: Дописать HTTPResponseGenerator
-# TODO: Дописать HTTPServer.handle
-# TODO: Дописать считывание аргументов, main (запуск в несколько потоков)
+
 
 import os
 import sys
