@@ -1,0 +1,15 @@
+CHUNK_SIZE = 8192
+PROTOCOL = "HTTP/1.0"
+
+OK = 200
+FORBIDDEN = 403
+NOT_FOUND = 404
+METHOD_NOT_ALLOWED = 405
+INTERNAL_ERROR = 500
+ERRORS = {
+    OK: "OK",
+    FORBIDDEN: "Forbidden",
+    NOT_FOUND: "Not Found",
+    METHOD_NOT_ALLOWED: "Method Not Allowed",
+    INTERNAL_ERROR: "Internal Server Error"
+}
