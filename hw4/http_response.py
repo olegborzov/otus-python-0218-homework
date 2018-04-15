@@ -43,7 +43,7 @@ def generate_headers(uri: str) -> str:
     headers = OrderedDict({
         "Date": get_date(),
         "Server": "Otus-Python-HW04",
-        "Content-Length": os.path.getsize(uri),
+        "Content-Length": get_file_size(uri),
         "Content-Type": mimetypes.guess_type(uri)[0],
         "Connection": "close"
     })
@@ -51,14 +51,20 @@ def generate_headers(uri: str) -> str:
     return headers
 
 
-def generate_body(code: int, method: str, uri: str) -> Union[bytes, None]:
-    if code == OK and method != "GET":
-        return None
+def generate_body(code: int, method: str, uri: str,
+                  retry: int = 0) -> Union[bytes, None]:
+    try:
+        if code == OK and method != "GET":
+            return None
 
-    with open(uri, "rb") as file:
-        body = file.read()
+        with open(uri, "rb") as file:
+            body = file.read()
 
-    return body
+        return body
+    except OSError:
+        if retry < 5:
+            return generate_body(code, method, uri, retry+1)
+        raise
 
 
 def get_date() -> str:
@@ -68,4 +74,13 @@ def get_date() -> str:
     now = datetime.now()
     stamp = mktime(now.timetuple())
     return formatdate(stamp, False, True)
+
+
+def get_file_size(uri: str, retry:int = 0) -> int:
+    try:
+        return os.path.getsize(uri)
+    except OSError:
+        if retry < 5:
+            return get_file_size(uri, retry+1)
+        raise
 

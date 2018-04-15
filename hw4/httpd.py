@@ -89,9 +89,10 @@ class HTTPRequestParser:
 
 
 class HTTPServer:
-    def __init__(self, port: str = 8099, doc_root: str = "www",
-                 max_connections: int = 5, chunk_size: int = CHUNK_SIZE):
-        self.host = "localhost"
+    def __init__(self, host: str = "localhost", port: str = 8099,
+                 doc_root: str = "www", max_connections: int = 5,
+                 chunk_size: int = CHUNK_SIZE):
+        self.host = host
         self.port = port
         self.root = doc_root
         self.max_connections = max_connections
@@ -126,7 +127,7 @@ class HTTPServer:
                 client_socket = None
                 try:
                     client_socket, client_addr = self.socket.accept()
-                    logging.info("Request from {}".format(client_addr))
+                    logging.debug("Request from {}".format(client_addr))
                     client_handler = threading.Thread(
                         target=self.handle,
                         args=(client_socket,)
@@ -142,7 +143,8 @@ class HTTPServer:
     def handle(self, client_socket: socket.socket):
         try:
             request = self.receive(client_socket)
-            logging.info("Request status_line: {}".format(request.split("\n")[0]))
+            msg = "Request status_line: {}".format(request.split("\n")[0])
+            logging.debug(msg)
             if not request:
                 return
 
@@ -158,15 +160,18 @@ class HTTPServer:
 
     def receive(self, client_socket: socket.socket) -> str:
         result = ""
+        try:
+            while True:
+                chunk = client_socket.recv(self.chunk_size)
+                result += chunk.decode()
+                if "\r\n\r\n" in result:
+                    break
+                if not chunk:
+                    logging.warning("Got empty chunk")
+                    break
+        except ConnectionResetError:
+            pass
 
-        while True:
-            chunk = client_socket.recv(self.chunk_size)
-            result += chunk.decode()
-            if "\r\n\r\n" in result:
-                break
-            if not chunk:
-                logging.warning("Got empty chunk")
-                break
         return result
 
 
@@ -187,6 +192,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description='HTTP server OTUS')
 
     parser.add_argument(
+        '-hs', '--host', type=str, default="localhost",
+        help='listened host, default - localhost'
+    )
+    parser.add_argument(
         '-p', '--port', type=int, default=8099,
         help='listened port, default - 8099'
     )
@@ -203,9 +212,9 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    set_logging(logging.WARNING)
+    set_logging(logging.INFO)
     args = parse_args()
-    server = HTTPServer(port=args.port, doc_root=args.root)
+    server = HTTPServer(host=args.host, port=args.port, doc_root=args.root)
     server.start()
 
     workers = []
