@@ -1,6 +1,23 @@
 # HTTP Server
 HTTP server with implemented GET and HEAD methods.<br>
-Run with several listening processes on given port.
+Run with several listening processes on given port.<br>
+Multiprocessing scheme:
+```
+httpd.py--|----------|
+          |          |--thread<--->client
+          |          |--thread<--->client
+          |          |--thread<--->client
+          |
+          |--fork()--|
+          |          |--thread<--->client
+          |          |--thread<--->client
+          |          |--thread<--->client
+          |
+          |--fork()--|
+          |          |--thread<--->client
+          |          |--thread<--->client
+          |          |--thread<--->client
+```
 
 ### Requirements
 Python 3+ version required

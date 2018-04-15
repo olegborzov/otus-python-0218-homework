@@ -11,6 +11,7 @@ import socket
 import logging
 import logging.handlers
 import argparse
+import threading
 import multiprocessing
 from urllib.parse import urlparse, unquote
 
@@ -100,7 +101,7 @@ class HTTPServer:
 
     def start(self):
         try:
-            # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
             self.socket.bind((self.host, self.port))
@@ -117,7 +118,7 @@ class HTTPServer:
             self.socket.shutdown(socket.SHUT_RDWR)
             logging.info("Server's socket closed")
         except OSError:
-            pass
+            return
 
     def listen(self):
         try:
@@ -126,10 +127,11 @@ class HTTPServer:
                 try:
                     client_socket, client_addr = self.socket.accept()
                     logging.info("Request from {}".format(client_addr))
-                    self.handle(client_socket)
-                except KeyboardInterrupt:
-                    self.shutdown()
-                    raise
+                    client_handler = threading.Thread(
+                        target=self.handle,
+                        args=(client_socket,)
+                    )
+                    client_handler.start()
                 except OSError:
                     logging.warning("Can't handle request")
                     if client_socket:
@@ -138,20 +140,21 @@ class HTTPServer:
             self.shutdown()
 
     def handle(self, client_socket: socket.socket):
-        request = self.receive(client_socket)
-        logging.info("Received request: {}".format(request))
-        if not request:
+        try:
+            request = self.receive(client_socket)
+            logging.info("Request status_line: {}".format(request.split("\n")[0]))
+            if not request:
+                return
+
+            code, method, uri = HTTPRequestParser.parse(request, self.root)
+            if code != OK:
+                uri = "error_pages/{}.html".format(code)
+
+            logging.debug("Send result: {}, {}, {}".format(code, method, uri))
+            response = generate_response(code, method, uri)
+            client_socket.sendall(response)
+        finally:
             client_socket.close()
-            return
-
-        code, method, uri = HTTPRequestParser.parse(request, self.root)
-        if code != OK:
-            uri = "error_pages/{}.html".format(code)
-
-        logging.info("Send result: {}, {}, {}".format(code, method, uri))
-        response = generate_response(code, method, uri)
-        client_socket.sendall(response)
-        client_socket.close()
 
     def receive(self, client_socket: socket.socket) -> str:
         result = ""
@@ -167,13 +170,13 @@ class HTTPServer:
         return result
 
 
-def set_logging():
+def set_logging(logging_level: int = logging.INFO):
     # Stream handler
     stream_handler = logging.StreamHandler()
 
     logging.basicConfig(
         handlers=[stream_handler],
-        level=logging.DEBUG,
+        level=logging_level,
         format='%(asctime)s %(levelname)s '
                '{%(pathname)s:%(lineno)d}: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
@@ -200,7 +203,7 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    set_logging()
+    set_logging(logging.WARNING)
     args = parse_args()
     server = HTTPServer(port=args.port, doc_root=args.root)
     server.start()
