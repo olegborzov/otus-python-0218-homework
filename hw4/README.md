@@ -1,56 +1,48 @@
-# Scoring API
-Implementation of the declarative language of description 
-and the system of validating requests to the HTTP service API scoring.
+# HTTP Server
+HTTP server with implemented GET and HEAD methods.<br>
+Run with several listening processes on given port.
 
 ### Requirements
-Python 3+ version required.<br>
-Needed python packages:
- - redis (for storage)
- - pytest (for tests)
+Python 3+ version required
 
-### How to run: 
-Print in terminal:
+### How to see possible options:
+ - <b>%path_to_module_dir%</b> - path to dir with module
 ```
 cd %path_to_module_dir%
-python3 api.py
+python3 httpd.py --help
+```
+
+### How to run: 
+ - <b>%path_to_module_dir%</b> - path to dir with module
+ - <b>%port%</b> - server listened port, default - 8099
+ - <b>%workers_count%</b> - server workers count, default - 5
+ - <b>%DOCUMENT_ROOT%</b> - DIRECTORY_ROOT with site files, default - doc_root
+
+```
+cd %path_to_module_dir%
+python3 httpd.py -p %port% -w %workers_count% -r %DOCUMENT_ROOT%
 ```
 
 ### How to run tests: 
 Print in terminal:
 ```
 cd %path_to_module_dir%
-pytest
+python2.7 httptest.py
 ```
 
-### Request samples
-Sample for _online_score_ method:
-```
-curl -X POST -H "Content-Type: application/json" -d '{
-	"account": "horns&hoofs",
-	"login": "h&f",
-	"method": "online_score",
-	"token": "55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95",
-	"arguments": {
-		"phone": "79175002040",
-		"email": "stupnikov@otus.ru",
-		"first_name": "Стансилав",
-		"last_name": "Ступников",
-		"birthday": "01.01.1990",
-		"gender": 1
-	}
-}' http://127.0.0.1:8080/method/
-```
+### Load Testing
+Results of load testing
 
-Sample for _client_interests_ method:
 ```
-curl -X POST -H "Content-Type: application/json" -d '{
-	"account": "horns&hoofs",
-	"login": "h&f",
-	"method": "clients_interests",
-	"token": "55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95",
-	"arguments": {
-		"client_ids": [1,2,3,4],
-		"date": "20.07.2017"
-	}
-}' http://127.0.0.1:8080/method/
+wrk -t4 -c100 -d10s http://localhost:8099/httptest/dir2/
+
+Running 10s test @ http://localhost:8099/httptest/dir2/
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     3.10ms    1.43ms  60.80ms   98.18%
+    Req/Sec   662.05    381.55     1.60k    67.49%
+  16082 requests in 10.06s, 2.76MB read
+  Socket errors: connect 0, read 18, write 2, timeout 0
+Requests/sec:   1598.28
+Transfer/sec:    280.95KB
 ```
