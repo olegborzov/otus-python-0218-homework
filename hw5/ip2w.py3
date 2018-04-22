@@ -24,16 +24,13 @@ def get_weather_info(ip: str, config: Dict) -> Tuple[int, Union[Dict, str]]:
     if not validate_ip(ip):
         code = BAD_REQUEST
         msg = "Wrong ip. Please provide a valid IP address"
-        logging.info(code, msg)
         return code, msg
 
     code, city_answer = get_city_from_ip(ip, config)
     if code != OK:
-        logging.info(code, city_answer)
         return code, city_answer
 
-    code, weather_info = get_weather_by_city(city_answer)
-    logging.info(code, city_answer)
+    code, weather_info = get_weather_by_city(city_answer, config)
     return code, weather_info
 
 
@@ -141,7 +138,10 @@ def application(environ, start_response):
     except IndexError:
         ip = environ['REMOTE_ADDR']
 
+    logging.info("Request: {}".format(ip))
+
     code, response = get_weather_info(ip, config)
+    logging.info("Response: {}, {}".format(code, response))
     if not isinstance(response, str):
         response = json.dumps(response, ensure_ascii=False, indent="\t")
     response = response.encode(encoding="UTF-8")
