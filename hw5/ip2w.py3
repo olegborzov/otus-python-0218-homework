@@ -3,35 +3,31 @@
 Test uWSGI
 """
 
-import os
 import time
 import json
 import ipaddress
 import logging
 import logging.handlers
+from configparser import ConfigParser
 from typing import Dict, Union, Tuple
 
 import requests
-
-# TODO: Конфиг файл (в папке /usr/local/etc/)
 
 OK = 200
 BAD_REQUEST = 400
 INTERNAL_ERROR = 500
 
-MAX_RETRIES = os.environ.get("MAX_RETRIES", 3)
-TIMEOUT = os.environ.get("TIMEOUT", 3)
-OWM_API_KEY = os.environ.get("OWM_API_KEY", "92ad6b11cd73fb8367b03e1e8ac10701")
+CONFIG_PATH = "/usr/local/etc/ip2w.ini"
 
 
-def get_weather_info(ip: str) -> Tuple[int, Union[Dict, str]]:
+def get_weather_info(ip: str, config: Dict) -> Tuple[int, Union[Dict, str]]:
     if not validate_ip(ip):
         code = BAD_REQUEST
         msg = "Wrong ip. Please provide a valid IP address"
         logging.info(code, msg)
         return code, msg
 
-    code, city_answer = get_city_from_ip(ip)
+    code, city_answer = get_city_from_ip(ip, config)
     if code != OK:
         logging.info(code, city_answer)
         return code, city_answer
@@ -49,9 +45,12 @@ def validate_ip(ip: str) -> bool:
         return False
 
 
-def get_city_from_ip(ip: str, retry=0) -> Tuple[int, str]:
+def get_city_from_ip(ip: str,
+                     config: Dict,
+                     retry: int = 0) -> Tuple[int, str]:
     try:
-        res = requests.get("https://ipinfo.io/" + ip, timeout=TIMEOUT)
+        url = "https://ipinfo.io/" + ip
+        res = requests.get(url, timeout=config["timeout"])
         res.raise_for_status()
         res = res.json()
 
@@ -65,22 +64,24 @@ def get_city_from_ip(ip: str, retry=0) -> Tuple[int, str]:
         else:
             return OK, "{},{}".format(res["city"], res["country"])
     except requests.RequestException:
-        if retry < MAX_RETRIES:
+        if retry < config["max_retries"]:
             time.sleep(1)
-            return get_city_from_ip(ip, retry+1)
+            return get_city_from_ip(ip, config, retry+1)
         return INTERNAL_ERROR, "Requests retries to ipinfo.io exceeded"
 
 
-def get_weather_by_city(city: str, retry=0) -> Tuple[int, Union[Dict, str]]:
+def get_weather_by_city(city: str,
+                        config: Dict,
+                        retry: int = 0) -> Tuple[int, Union[Dict, str]]:
     try:
         url = "http://api.openweathermap.org/data/2.5/" \
               "weather?q={city}&units=metric&lang=ru&appid={api_key}"
         url = url.format(
             city=city,
-            api_key=OWM_API_KEY
+            api_key=config["owm_api_key"]
         )
 
-        res = requests.get(url, timeout=TIMEOUT)
+        res = requests.get(url, timeout=config["timeout"])
         res.raise_for_status()
         res = res.json()
 
@@ -103,9 +104,9 @@ def get_weather_by_city(city: str, retry=0) -> Tuple[int, Union[Dict, str]]:
         else:
             return result_code, res["message"]
     except requests.RequestException:
-        if retry < MAX_RETRIES:
+        if retry < config["max_retries"]:
             time.sleep(1)
-            return get_weather_by_city(city, retry+1)
+            return get_weather_by_city(city, config, retry+1)
 
         err_msg = "Requests retries to api.openweathermap.org exceeded"
         return INTERNAL_ERROR, err_msg
@@ -116,10 +117,9 @@ def set_logging(log_path: str, log_level: int = logging.INFO):
     file_handler = logging.handlers.RotatingFileHandler(
         filename=log_path, maxBytes=1000000, backupCount=3, encoding="UTF-8"
     )
-    stream_handler = logging.StreamHandler()
 
     logging.basicConfig(
-        handlers=[stream_handler, file_handler],
+        handlers=[file_handler],
         level=log_level,
         format='%(asctime)s %(levelname)s '
                '{%(pathname)s:%(lineno)d}: %(message)s',
@@ -127,8 +127,15 @@ def set_logging(log_path: str, log_level: int = logging.INFO):
     )
 
 
+def read_config() -> Dict:
+    config = ConfigParser()
+    config.read(CONFIG_PATH)
+    return dict(config["ip2w"])
+
+
 def application(environ, start_response):
-    set_logging("/")
+    config = read_config()
+    set_logging(config["log_dir"])
 
     request = environ['PATH_INFO'].strip('/').split('/')
     try:
@@ -136,7 +143,7 @@ def application(environ, start_response):
     except IndexError:
         ip = environ['REMOTE_ADDR']
 
-    code, response = get_weather_info(ip)
+    code, response = get_weather_info(ip, config)
     if not isinstance(response, str):
         response = json.dumps(response, ensure_ascii=False, indent="\t")
     response = response.encode(encoding="UTF-8")
