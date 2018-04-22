@@ -36,9 +36,12 @@ def get_weather_info(env: Dict, config: Dict) -> Tuple[int, Union[Dict, str]]:
 def get_ip(env: Dict) -> Tuple[int, str]:
     ip = ""
     try:
+        ip = env['PATH_INFO']
+        ip = ip.strip('/').split('/')
+        if len(ip) > 2:
+            raise ipaddress.AddressValueError
+
         try:
-            ip = env['PATH_INFO']
-            ip = ip.strip('/').split('/')
             ip = ip[1]
         except IndexError:
             ip = env['REMOTE_ADDR']
@@ -65,14 +68,14 @@ def get_city_from_ip(ip: str,
             )
             return BAD_REQUEST, err_msg
         if not("city" in res and "country" in res):
-            return INTERNAL_ERROR, "Unrecognized error"
+            return INTERNAL_ERROR, "Unrecognized error: " + ip
         else:
             return OK, "{},{}".format(res["city"], res["country"])
     except requests.RequestException:
         if retry < config["max_retries"]:
             time.sleep(1)
             return get_city_from_ip(ip, config, retry+1)
-        return INTERNAL_ERROR, "Requests retries to ipinfo.io exceeded"
+        return INTERNAL_ERROR, "Requests retries to ipinfo.io exceeded: " + ip
 
 
 def get_weather_by_city(city: str,
@@ -91,7 +94,7 @@ def get_weather_by_city(city: str,
         res = res.json()
 
         if "cod" not in res:
-            return INTERNAL_ERROR, "Unrecognized error"
+            return INTERNAL_ERROR, "Unrecognized error: " + city
         result_code = int(res["cod"])
         if result_code == OK:
             temp = str(res["main"]["temp"])
@@ -113,7 +116,7 @@ def get_weather_by_city(city: str,
             time.sleep(1)
             return get_weather_by_city(city, config, retry+1)
 
-        err_msg = "Requests retries to api.openweathermap.org exceeded"
+        err_msg = "Retries to api.openweathermap.org exceeded: " + city
         return INTERNAL_ERROR, err_msg
 
 
