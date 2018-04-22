@@ -73,3 +73,4 @@ nginx
 %{__bindir}
 %{__systemddir}
 %{__etcdir}
+%{__nginx}
