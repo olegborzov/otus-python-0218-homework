@@ -25,7 +25,7 @@ Return information about the weather in given city, using the site openweatherma
 Git version: %{git_version} (branch: %{git_branch})
 
 %define __etcdir    /usr/local/etc
-%define __logdir    /val/log/
+%define __logdir    /var/log/
 %define __bindir    /usr/local/ip2w/
 %define __systemddir	/usr/lib/systemd/system/
 
