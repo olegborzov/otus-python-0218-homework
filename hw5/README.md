@@ -21,6 +21,11 @@ cd hw5
 ```
 ./buildrpm.sh $PWD/ip2w.spec
 ```
+- Run daemon:
+```
+systemctl start ip2w
+
+```
 - Test daemon:
 ```
 >>> curl http://localhost/ip2w/176.14.221.123

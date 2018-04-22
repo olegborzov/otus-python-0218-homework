@@ -49,6 +49,7 @@ rm -rf %{buildroot}
 %{__install} -pD -m 644 %{name}_nginx.conf %{buildroot}%{__nginx}%{name}_nginx.conf
 
 %{__mkdir} -p %{buildroot}%{__logdir}
+%{__install} -pD -m 664 %{name}.log %{buildroot}%{__logdir}%{name}.log
 
 %post
 %systemd_post %{name}.service

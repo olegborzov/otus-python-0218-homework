@@ -114,9 +114,7 @@ def get_weather_by_city(city: str,
 
 def set_logging(log_path: str, log_level: int = logging.INFO):
     # File handler
-    file_handler = logging.handlers.RotatingFileHandler(
-        filename=log_path, maxBytes=1000000, backupCount=3, encoding="UTF-8"
-    )
+    file_handler = logging.FileHandler(filename=log_path, encoding="UTF-8")
 
     logging.basicConfig(
         handlers=[file_handler],
@@ -135,7 +133,7 @@ def read_config() -> Dict:
 
 def application(environ, start_response):
     config = read_config()
-    set_logging(config["log_dir"])
+    set_logging(config["log_path"])
 
     request = environ['PATH_INFO'].strip('/').split('/')
     try:
