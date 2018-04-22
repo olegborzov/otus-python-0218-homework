@@ -27,6 +27,7 @@ Git version: %{git_version} (branch: %{git_branch})
 %define __logdir    /var/log/
 %define __bindir    /usr/local/ip2w/
 %define __systemddir	/usr/lib/systemd/system/
+%define __nginx /etc/nginx/
 
 %prep
 rm -rf %{buildroot}
@@ -43,19 +44,25 @@ rm -rf %{buildroot}
 
 %{__mkdir} -p %{buildroot}%{__etcdir}
 %{__install} -pD -m 644 %{name}.ini %{buildroot}%{__etcdir}%{name}.ini
-%{__install} -pD -m 644 %{name}_nginx.conf %{buildroot}%{__etcdir}%{name}_nginx.conf
+
+%{__mkdir} -p %{buildroot}%{__nginx}
+%{__install} -pD -m 644 %{name}_nginx.conf %{buildroot}%{__nginx}%{name}_nginx.conf
 
 %{__mkdir} -p %{buildroot}%{__logdir}
 
 %post
 %systemd_post %{name}.service
 systemctl daemon-reload
+nginx -s quit
+nginx -c %{__nginx}%{name}_nginx.conf
 
 %preun
 %systemd_preun %{name}.service
 
 %postun
 %systemd_postun %{name}.service
+nginx -s quit
+nginx
 
 %clean
 [ "%{buildroot}" != "/" ] && rm -fr %{buildroot}
