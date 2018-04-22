@@ -13,13 +13,15 @@ from typing import Dict, Union, Tuple
 
 import requests
 
+# TODO: Конфиг файл (в папке /usr/local/etc/)
+
 OK = 200
 BAD_REQUEST = 400
 INTERNAL_ERROR = 500
 
-MAX_RETRIES = os.environ.get("MAX_RETRIES")
-TIMEOUT = os.environ.get("TIMEOUT")
-OWM_API_KEY = os.environ.get("OWM_API_KEY")
+MAX_RETRIES = os.environ.get("MAX_RETRIES", 3)
+TIMEOUT = os.environ.get("TIMEOUT", 3)
+OWM_API_KEY = os.environ.get("OWM_API_KEY", "92ad6b11cd73fb8367b03e1e8ac10701")
 
 
 def get_weather_info(ip: str) -> Tuple[int, Union[Dict, str]]:
@@ -114,9 +116,10 @@ def set_logging(log_path: str, log_level: int = logging.INFO):
     file_handler = logging.handlers.RotatingFileHandler(
         filename=log_path, maxBytes=1000000, backupCount=3, encoding="UTF-8"
     )
+    stream_handler = logging.StreamHandler()
 
     logging.basicConfig(
-        handlers=[file_handler],
+        handlers=[stream_handler, file_handler],
         level=log_level,
         format='%(asctime)s %(levelname)s '
                '{%(pathname)s:%(lineno)d}: %(message)s',
@@ -125,7 +128,7 @@ def set_logging(log_path: str, log_level: int = logging.INFO):
 
 
 def application(environ, start_response):
-    set_logging(environ["LOG_PATH"])
+    set_logging("/")
 
     request = environ['PATH_INFO'].strip('/').split('/')
     try:
@@ -135,11 +138,11 @@ def application(environ, start_response):
 
     code, response = get_weather_info(ip)
     if not isinstance(response, str):
-        response = json.dumps(response)
+        response = json.dumps(response, ensure_ascii=False, indent="\t")
     response = response.encode(encoding="UTF-8")
 
     start_response(str(code), [
-        ('Content-Type', 'application/json'),
+        ('Content-Type', 'application/json; charset=UTF-8'),
         ('Content-Length', str(len(response))),
     ])
     return [response]

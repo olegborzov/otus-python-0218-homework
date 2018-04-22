@@ -12,7 +12,6 @@ Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
-Requires: python3
 Requires: python-requests
 Summary:  OTUS uWSGI daemon for getting weather in city by IP
 
@@ -46,13 +45,13 @@ rm -rf %{buildroot}
 %{__install} -pD -m 644 %{name}.ini %{buildroot}%{__etcdir}%{name}.ini
 %{__install} -pD -m 644 %{name}_nginx.conf %{buildroot}%{__etcdir}%{name}_nginx.conf
 
-%{__mkdir} -p %{buildroot}/%{__logdir}
+%{__mkdir} -p %{buildroot}%{__logdir}
 
 %post
 %systemd_post %{name}.service
 systemctl daemon-reload
 nginx -s quit
-nginx -c %{buildroot}/%{__etcdir}/%{name}_nginx.conf
+nginx -c %{__etcdir}%{name}_nginx.conf
 
 %preun
 %systemd_preun %{name}.service
