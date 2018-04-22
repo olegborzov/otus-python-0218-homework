@@ -50,16 +50,12 @@ rm -rf %{buildroot}
 %post
 %systemd_post %{name}.service
 systemctl daemon-reload
-nginx -s quit
-nginx -c %{__etcdir}%{name}_nginx.conf
 
 %preun
 %systemd_preun %{name}.service
 
 %postun
 %systemd_postun %{name}.service
-nginx -s quit
-nginx
 
 %clean
 [ "%{buildroot}" != "/" ] && rm -fr %{buildroot}
