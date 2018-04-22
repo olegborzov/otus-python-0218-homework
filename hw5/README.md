@@ -24,7 +24,6 @@ cd hw5
 - Run daemon:
 ```
 systemctl start ip2w
-
 ```
 - Test daemon:
 ```
