@@ -5,6 +5,7 @@ import socket
 import httplib
 import unittest
 
+
 class HttpServer(unittest.TestCase):
   host = "localhost"
   port = 8099

@@ -20,11 +20,10 @@ INTERNAL_ERROR = 500
 CONFIG_PATH = "/usr/local/etc/ip2w.ini"
 
 
-def get_weather_info(ip: str, config: Dict) -> Tuple[int, Union[Dict, str]]:
-    if not validate_ip(ip):
-        code = BAD_REQUEST
-        msg = "Wrong ip. Please provide a valid IP address"
-        return code, msg
+def get_weather_info(env: Dict, config: Dict) -> Tuple[int, Union[Dict, str]]:
+    code, ip = get_ip(env)
+    if code != OK:
+        return code, ip
 
     code, city_answer = get_city_from_ip(ip, config)
     if code != OK:
@@ -34,12 +33,21 @@ def get_weather_info(ip: str, config: Dict) -> Tuple[int, Union[Dict, str]]:
     return code, weather_info
 
 
-def validate_ip(ip: str) -> bool:
+def get_ip(env: Dict) -> Tuple[int, str]:
+    ip = ""
     try:
+        try:
+            ip = env['PATH_INFO']
+            ip = ip.strip('/').split('/')
+            ip = ip[1]
+        except IndexError:
+            ip = env['REMOTE_ADDR']
+
         ipaddress.IPv4Address(ip)
-        return True
+        return OK, ip
     except ipaddress.AddressValueError:
-        return False
+        err_msg = "Wrong ip: {}".format(ip)
+        return BAD_REQUEST, err_msg
 
 
 def get_city_from_ip(ip: str,
@@ -110,7 +118,6 @@ def get_weather_by_city(city: str,
 
 
 def set_logging(log_path: str, log_level: int = logging.INFO):
-    # File handler
     file_handler = logging.FileHandler(filename=log_path, encoding="UTF-8")
 
     logging.basicConfig(
@@ -132,19 +139,13 @@ def read_config() -> Dict:
     return config
 
 
-def application(environ, start_response):
+def application(env, start_response):
     config = read_config()
     set_logging(config["log_path"])
 
-    request = environ['PATH_INFO'].strip('/').split('/')
-    try:
-        ip = request[1]
-    except IndexError:
-        ip = environ['REMOTE_ADDR']
+    logging.info("Request path: {}".format(env['PATH_INFO']))
 
-    logging.info("Request: {}".format(ip))
-
-    code, response = get_weather_info(ip, config)
+    code, response = get_weather_info(env, config)
     logging.info("Response: {}, {}".format(code, response))
     if not isinstance(response, str):
         response = json.dumps(response, ensure_ascii=False, indent="\t")
