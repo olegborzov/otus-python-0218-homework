@@ -125,7 +125,11 @@ def set_logging(log_path: str, log_level: int = logging.INFO):
 def read_config() -> Dict:
     config = ConfigParser()
     config.read(CONFIG_PATH)
-    return dict(config["ip2w"])
+    config = dict(config["ip2w"])
+    config["max_retries"] = int(config["max_retries"])
+    config["timeout"] = float(config["timeout"])
+
+    return config
 
 
 def application(environ, start_response):
