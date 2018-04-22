@@ -36,15 +36,15 @@ rm -rf %{buildroot}
 %install
 [ "%{buildroot}" != "/" ] && rm -fr %{buildroot}
 
-%{__mkdir} -p %{buildroot}/%{__systemddir}
-%{__install} -pD -m 644 %{name}.service %{buildroot}/%{__systemddir}/%{name}.service
+%{__mkdir} -p %{buildroot}%{__systemddir}
+%{__install} -pD -m 644 %{name}.service %{buildroot}%{__systemddir}%{name}.service
 
-%{__mkdir} -p %{buildroot}/%{__bindir}
-%{__install} -pD -m 755 %{name}.py3 %{buildroot}/%{__bindir}/%{name}.py3
+%{__mkdir} -p %{buildroot}%{__bindir}
+%{__install} -pD -m 755 %{name}.py3 %{buildroot}%{__bindir}%{name}.py3
 
-%{__mkdir} -p %{buildroot}/%{__etcdir}
-%{__install} -pD -m 644 %{name}.ini %{buildroot}/%{__etcdir}/%{name}.ini
-%{__install} -pD -m 644 %{name}_nginx.conf %{buildroot}/%{__etcdir}/%{name}_nginx.conf
+%{__mkdir} -p %{buildroot}%{__etcdir}
+%{__install} -pD -m 644 %{name}.ini %{buildroot}%{__etcdir}%{name}.ini
+%{__install} -pD -m 644 %{name}_nginx.conf %{buildroot}%{__etcdir}%{name}_nginx.conf
 
 %{__mkdir} -p %{buildroot}/%{__logdir}
 
