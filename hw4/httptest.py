@@ -120,7 +120,10 @@ class HttpServer(unittest.TestCase):
 
   def test_document_root_escaping(self):
     """document root escaping forbidden"""
-    self.conn.request("GET", "/httptest/../../../../../../../../../../../../../etc/passwd")
+    self.conn.request(
+      "GET",
+      "/httptest/../../../../../../../../../../../../../etc/passwd"
+    )
     r = self.conn.getresponse()
     data = r.read()
     self.assertIn(int(r.status), (400, 403, 404))
