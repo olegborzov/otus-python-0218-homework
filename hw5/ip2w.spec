@@ -12,6 +12,7 @@ Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
+Requires: nginx
 Requires: python-requests
 Summary:  OTUS uWSGI daemon for getting weather in city by IP
 
@@ -25,7 +26,7 @@ Git version: %{git_version} (branch: %{git_branch})
 
 %define __etcdir    /usr/local/etc/
 %define __logdir    /var/log/
-%define __bindir    /usr/local/ip2w/
+%define __bindir    /usr/local/bin/
 %define __systemddir	/usr/lib/systemd/system/
 %define __nginx /etc/nginx/
 
