@@ -71,9 +71,14 @@ def get_date() -> str:
     """
     :return: current datetime in RFC-1123 format
     """
-    now = datetime.now()
-    stamp = mktime(now.timetuple())
-    return formatdate(stamp, False, True)
+    now = datetime.utcnow()
+    weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][now.weekday()]
+    month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+             "Oct", "Nov", "Dec"][now.month - 1]
+    rfc_fmt_dt = "%s, %02d %s %04d %02d:%02d:%02d GMT" % (
+        weekday, now.day, month, now.year, now.hour, now.minute, now.second
+    )
+    return rfc_fmt_dt
 
 
 def get_file_size(uri: str, retry:int = 0) -> int:
