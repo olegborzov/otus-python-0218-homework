@@ -14,6 +14,7 @@ import argparse
 import threading
 import multiprocessing
 from urllib.parse import urlparse, unquote
+from typing import Tuple
 
 from http_response import generate_response
 from config import *
@@ -125,36 +126,46 @@ class HTTPServer:
         try:
             while True:
                 client_socket = None
+                client_addr = ""
                 try:
                     client_socket, client_addr = self.socket.accept()
                     logging.debug("Request from {}".format(client_addr))
                     client_handler = threading.Thread(
                         target=self.handle,
-                        args=(client_socket,)
+                        args=(client_socket, client_addr)
                     )
                     client_handler.start()
                 except OSError:
-                    logging.warning("Can't handle request")
+                    logging.warning("Can't handle request from {}".format(
+                        client_addr
+                    ))
                     if client_socket:
                         client_socket.close()
         finally:
             self.shutdown()
 
-    def handle(self, client_socket: socket.socket):
+    def handle(self, client_socket: socket.socket, client_addr: Tuple):
         try:
             request = self.receive(client_socket)
-            msg = "Request status_line: {}".format(request.split("\n")[0])
-            logging.debug(msg)
             if not request:
+                logging.warning("Empty request from {}".format(client_addr))
                 return
+            logging.debug("Request from {}. Status_line: {}".format(
+                client_addr, request.split("\n")[0]
+            ))
 
             code, method, uri = HTTPRequestParser.parse(request, self.root)
             if code != OK:
                 uri = "error_pages/{}.html".format(code)
 
-            logging.debug("Send result: {}, {}, {}".format(code, method, uri))
             response = generate_response(code, method, uri)
             client_socket.sendall(response)
+            logging.debug("Send response to {}: {}, {}, {}".format(
+                client_addr, code, method, uri
+            ))
+        except ConnectionError:
+            err_msg = "Can't send response to {}".format(client_addr)
+            logging.exception(err_msg)
         finally:
             client_socket.close()
 
@@ -167,9 +178,8 @@ class HTTPServer:
                 if "\r\n\r\n" in result:
                     break
                 if not chunk:
-                    logging.warning("Got empty chunk")
                     break
-        except ConnectionResetError:
+        except ConnectionError:
             pass
 
         return result
@@ -212,7 +222,7 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    set_logging(logging.INFO)
+    set_logging(logging.DEBUG)
     args = parse_args()
     server = HTTPServer(host=args.host, port=args.port, doc_root=args.root)
     server.start()
@@ -223,8 +233,8 @@ if __name__ == '__main__':
             worker = multiprocessing.Process(target=server.listen)
             workers.append(worker)
             worker.start()
-        for _, worker in enumerate(workers):
-            logging.info("{} worker started".format(_))
+            logging.info("{} worker started".format(i+1))
+        for worker in workers:
             worker.join()
     except KeyboardInterrupt:
         for worker in workers:
