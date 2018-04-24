@@ -13,7 +13,8 @@ import logging.handlers
 import argparse
 import threading
 import multiprocessing
-from urllib.parse import urlparse, unquote
+import re
+from urllib.parse import unquote
 from typing import Tuple
 
 from http_response import generate_response
@@ -53,15 +54,28 @@ class HTTPRequestParser:
         return OK
 
     @classmethod
+    def normalize_uri(cls, uri: str, root_dir: str) -> (int, str):
+        if "../" in uri:
+            return FORBIDDEN, uri
+
+        # Split ? and #
+        uri_path = uri.split("#")[0].split("?")[0]
+
+        # Validate uri
+        uri_pattern = r"^\/[\/\.a-zA-Z0-9\-\_\%]+$"
+        if not re.match(uri_pattern, uri_path):
+            return BAD_REQUEST, uri
+
+        uri_path = unquote(uri_path).lstrip("/")
+        uri_path = os.path.join(root_dir, uri_path)
+        return OK, uri_path
+
+    @classmethod
     def validate_uri(cls, uri: str, root_dir: str) -> (int, str):
         try:
-            if "../" in uri:
-                return FORBIDDEN, ""
-
-            # Normalize uri
-            uri_path = urlparse(uri).path
-            uri_path = unquote(uri_path).lstrip("/")
-            uri_path = os.path.join(root_dir, uri_path)
+            code, uri_path = cls.normalize_uri(uri, root_dir)
+            if code != OK:
+                return code, uri_path
 
             # Check if path is dir
             if os.path.isdir(uri_path) and not uri_path.endswith("/"):
@@ -70,15 +84,15 @@ class HTTPRequestParser:
             if uri_path.endswith("/"):
                 uri_path = os.path.join(uri_path, "index.html")
                 if not os.path.isfile(uri_path):
-                    return FORBIDDEN, ""
+                    return FORBIDDEN, uri_path
 
             # Check if path exists
             if not os.path.isfile(uri_path):
-                return NOT_FOUND, ""
+                return NOT_FOUND, uri_path
 
             return OK, uri_path
-        except:
-            return INTERNAL_ERROR, ""
+        except (TypeError, ValueError):
+            return INTERNAL_ERROR, uri
 
     @classmethod
     def get_error_file_path(cls, code: int) -> str:
