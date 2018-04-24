@@ -12,7 +12,7 @@ Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
 BuildRequires: systemd
-Requires: nginx
+BuildRequires: nginx
 Requires: python-requests
 Summary:  OTUS uWSGI daemon for getting weather in city by IP
 
