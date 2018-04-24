@@ -3,6 +3,7 @@
 Test uWSGI
 """
 
+import os
 import time
 import json
 import ipaddress
@@ -86,7 +87,7 @@ def get_weather_by_city(city: str,
               "weather?q={city}&units=metric&lang=ru&appid={api_key}"
         url = url.format(
             city=city,
-            api_key=config["owm_api_key"]
+            api_key=os.environ.get("owm_api_key", "")
         )
 
         res = requests.get(url, timeout=config["timeout"])
