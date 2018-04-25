@@ -14,7 +14,6 @@ import argparse
 import threading
 import multiprocessing
 import re
-from urllib.parse import unquote
 from typing import Tuple
 
 from http_response import generate_response
