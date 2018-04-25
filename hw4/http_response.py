@@ -6,8 +6,6 @@ HTTP response maker for methods GET and POST
 import os
 import mimetypes
 from datetime import datetime
-from time import mktime
-from email.utils import formatdate
 from collections import OrderedDict
 from typing import Union
 
@@ -51,20 +49,14 @@ def generate_headers(uri: str) -> str:
     return headers
 
 
-def generate_body(code: int, method: str, uri: str,
-                  retry: int = 0) -> Union[bytes, None]:
-    try:
-        if code == OK and method != "GET":
-            return None
+def generate_body(code: int, method: str, uri: str) -> Union[bytes, None]:
+    if code == OK and method != "GET":
+        return None
 
-        with open(uri, "rb") as file:
-            body = file.read()
+    with open(uri, "rb") as file:
+        body = file.read()
 
-        return body
-    except OSError:
-        if retry < 5:
-            return generate_body(code, method, uri, retry+1)
-        raise
+    return body
 
 
 def get_date() -> str:
@@ -81,11 +73,5 @@ def get_date() -> str:
     return rfc_fmt_dt
 
 
-def get_file_size(uri: str, retry:int = 0) -> int:
-    try:
-        return os.path.getsize(uri)
-    except OSError:
-        if retry < 5:
-            return get_file_size(uri, retry+1)
-        raise
-
+def get_file_size(uri: str) -> int:
+    return os.path.getsize(uri)
