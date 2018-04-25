@@ -250,7 +250,7 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    set_logging(logging.DEBUG)
+    set_logging(logging.INFO)
     args = parse_args()
     server = HTTPServer(host=args.host, port=args.port, doc_root=args.root)
     server.start()
