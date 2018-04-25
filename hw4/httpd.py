@@ -54,6 +54,21 @@ class HTTPRequestParser:
         return OK
 
     @classmethod
+    def unquote_uri(cls, uri: str) -> str:
+        global HEXTOBYTE
+        if HEXTOBYTE is None:
+            HEXTOBYTE = {
+                ("%" + a + b).encode(): bytes([int(a + b, 16)])
+                for a in HEXDIG for b in HEXDIG
+            }
+
+        uri_encoded = uri.encode()
+        for match, sub in HEXTOBYTE.items():
+            uri_encoded = uri_encoded.replace(match, sub)
+
+        return uri_encoded.decode(errors="replace")
+
+    @classmethod
     def normalize_uri(cls, uri: str, root_dir: str) -> (int, str):
         if "../" in uri:
             return FORBIDDEN, uri
@@ -66,7 +81,7 @@ class HTTPRequestParser:
         if not re.match(uri_pattern, uri_path):
             return BAD_REQUEST, uri
 
-        uri_path = unquote(uri_path).lstrip("/")
+        uri_path = cls.unquote_uri(uri_path).lstrip("/")
         uri_path = os.path.join(root_dir, uri_path)
         return OK, uri_path
 

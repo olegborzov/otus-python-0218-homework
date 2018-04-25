@@ -15,3 +15,6 @@ ERRORS = {
     METHOD_NOT_ALLOWED: "Method Not Allowed",
     INTERNAL_ERROR: "Internal Server Error"
 }
+
+HEXDIG = '0123456789ABCDEFabcdef'
+HEXTOBYTE = None
