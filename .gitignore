@@ -1,7 +1,8 @@
-# Custom
+﻿# Custom
 homework/
 */.htaccess
 *.DS_Store
+hw5_django*/
 
 # Archives
 *.tar
