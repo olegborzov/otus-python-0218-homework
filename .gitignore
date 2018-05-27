@@ -10,6 +10,10 @@ hw5_django*/
 *.zip
 *.rar
 
+# FILES
+*.pdf
+
+
 # Byte-compiled / optimized / DLL files
 *__pycache__/
 *.idea/
