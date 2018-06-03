@@ -2,7 +2,7 @@
 # source: appsinstalled.proto
 
 import sys
-_b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
+_b=sys.version_info[0]<3 and (lambda x: x) or (lambda x: x.encode('latin1'))
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
@@ -13,16 +13,12 @@ from google.protobuf import descriptor_pb2
 _sym_db = _symbol_database.Default()
 
 
-
-
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='appsinstalled.proto',
   package='',
   syntax='proto2',
   serialized_pb=_b('\n\x13\x61ppsinstalled.proto\"2\n\x08UserApps\x12\x0c\n\x04\x61pps\x18\x01 \x03(\r\x12\x0b\n\x03lat\x18\x02 \x01(\x01\x12\x0b\n\x03lon\x18\x03 \x01(\x01')
 )
-
-
 
 
 _USERAPPS = _descriptor.Descriptor(
