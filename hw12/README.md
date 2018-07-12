@@ -3,9 +3,10 @@ GO version of memc_load_multiprocessing.py.<br>
 
 # Algorythm
 When initializing, a Memcache client map is created for the specified addresses in the arguments.<br>
-The script reads the files line by line: <br>
-For each successfully read line, an AppsInstalled structure is created and passed to the goroutine for uploading to the corresponding Memcache client.<br>
-<b>MaxActiveGoroutines</b> - maximum number of concurrently running goroutines<br>.
+The script reads the files line by line. <br>
+For each successfully read line, an AppsInstalled structure is created 
+and passed to the goroutine for uploading to the corresponding Memcache client.<br><br>
+<b>MaxActiveGoroutines</b> - maximum number of concurrently running goroutines.<br>
 <b>MaxMemcConns</b> - maximum number of simultaneous connections for each Memcache client.
 
 ### How to run
