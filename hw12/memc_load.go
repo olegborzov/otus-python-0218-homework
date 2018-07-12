@@ -1,32 +1,36 @@
 package main
 
 import (
+	"./appsinstalled"
+	"bufio"
+	"compress/gzip"
+	"context"
+	"errors"
 	"flag"
+	"fmt"
+	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/golang/protobuf/proto"
 	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
 	"sync"
-	"bufio"
 	"sync/atomic"
 	"time"
-	"strings"
-	"errors"
-	"strconv"
-	"compress/gzip"
 )
 
 const (
 	MaxActiveGoroutines = 1000
 	MaxMemcConns        = 10
-	Tries               = 3
-	DelayMS             = 1
-	BackoffMult         = 2
-	NormalErrRate		= 0.01
+	NormalErrRate       = 0.01
 )
 
 type CommandArgs struct {
 	test         bool
+	dry          bool
 	logPath      string
 	filesPattern string
 
@@ -38,7 +42,8 @@ type CommandArgs struct {
 
 type MemcachedClient struct {
 	addr string
-	sem  semaphore.Weighted
+	client memcache.Client
+	sem    semaphore.Weighted
 }
 
 type AppsInstalled struct {
@@ -46,17 +51,22 @@ type AppsInstalled struct {
 	devId   string
 	lat     float64
 	lon     float64
-	apps    []int
+	apps    []uint32
 }
 
 func main() {
 	comArgs := parseArgs()
 
-	logfile, _ := os.Create(comArgs.logPath)
-	logObj := log.New(logfile, "", 0)
+	logfile, err := os.OpenFile(comArgs.logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatalf("Cannot open log file: %s", comArgs.logPath)
+		return
+	}
+	log.SetOutput(logfile)
+	defer logfile.Close()
 
 	if comArgs.test {
-		testParser(*logObj)
+		prototest()
 		return
 	}
 
@@ -64,37 +74,70 @@ func main() {
 
 	files, err := filepath.Glob(comArgs.filesPattern)
 	if err != nil || len(files) < 1 {
-		logObj.Fatalf("Files by pattern %v not found. Exit", comArgs.filesPattern)
+		log.Fatalf("Files by pattern %v not found. Exit", comArgs.filesPattern)
 		return
 	}
 
 	for _, filePath := range files {
-		processFile(filePath, memcClients, *logObj)
+		processFile(filePath, memcClients, comArgs.dry)
 	}
 }
 
-// Test parser of AppsInstalled from line
-// TODO: Realize it
-func testParser(logObj log.Logger) {
-	logObj.Print("test")
+func prototest() {
+	sample := "idfa\t1rfw452y52g2gq4g\t55.55\t42.42\t1423,43,567,3,7,23\ngaid\t7rfw452y52g2gq4g\t55.55\t42.42\t7423,424"
+
+	for _, line := range strings.Split(sample, "\n") {
+		appsInstalled, _ := parseLine(line)
+		ua := &appsinstalled.UserApps{
+			Lat:  proto.Float64(appsInstalled.lat),
+			Lon:  proto.Float64(appsInstalled.lon),
+			Apps: appsInstalled.apps,
+		}
+		packed, err := proto.Marshal(ua)
+		if err != nil {
+			log.Fatalf("prototest error: can't Marshal ua")
+			os.Exit(1)
+		}
+
+		unpacked := &appsinstalled.UserApps{}
+		err = proto.Unmarshal(packed, unpacked)
+		if err != nil {
+			log.Fatalf("prototest error: can't Unmarshal packed ua")
+			os.Exit(1)
+		}
+
+		badLat := unpacked.GetLat() != ua.GetLat()
+		badLon := unpacked.GetLon() != ua.GetLon()
+		badApps := !reflect.DeepEqual(ua.GetApps(), unpacked.GetApps())
+		if badLat || badLon || badApps {
+			log.Fatalf("prototest error: unpacked and ua values are different")
+			os.Exit(1)
+		}
+	}
+	log.Print("prototest success")
+	os.Exit(0)
 }
 
 func createMemcachedClientsMap(comArgs CommandArgs) map[string]MemcachedClient {
 	memcClients := make(map[string]MemcachedClient)
 	memcClients["idfa"] = MemcachedClient{
 		comArgs.idfa,
+		*memcache.New(comArgs.idfa),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 	memcClients["gaid"] = MemcachedClient{
 		comArgs.gaid,
+		*memcache.New(comArgs.gaid),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 	memcClients["adid"] = MemcachedClient{
 		comArgs.adid,
+		*memcache.New(comArgs.adid),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 	memcClients["dvid"] = MemcachedClient{
 		comArgs.dvid,
+		*memcache.New(comArgs.dvid),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 
@@ -102,7 +145,8 @@ func createMemcachedClientsMap(comArgs CommandArgs) map[string]MemcachedClient {
 }
 
 func parseArgs() CommandArgs {
-	test := flag.Bool("test", false, "test parser")
+	isTest := flag.Bool("test", false, "test protobuf")
+	isDry := flag.Bool("dry", false, "debug mode (without sending to memcached)")
 	logPath := flag.String("log", "./memc.log", "path to log file")
 	filesPattern := flag.String("pattern", "/data/appsinstalled/*.tsv.gz", "files path pattern")
 
@@ -114,7 +158,8 @@ func parseArgs() CommandArgs {
 	flag.Parse()
 
 	comArgs := CommandArgs{
-		*test,
+		*isTest,
+		*isDry,
 		*logPath,
 		*filesPattern,
 
@@ -133,8 +178,8 @@ func parseArgs() CommandArgs {
 // Help Links:
 // https://golang.org/pkg/sync/#WaitGroup
 // https://play.golang.org/p/uvQMci2ru5E
-func processFile(filePath string, memcClients map[string]MemcachedClient, logObj log.Logger) {
-	logObj.Printf("%v: start processing", filePath)
+func processFile(filePath string, memcClients map[string]MemcachedClient, dry bool) {
+	log.Printf("%v: start processing", filePath)
 
 	processed, errorsCount := 0, 0
 
@@ -172,7 +217,7 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, logObj
 			continue
 		}
 
-		ai, err := parseLine(line, logObj)
+		ai, err := parseLine(line)
 		if err != nil {
 			errorsCount += 1
 			continue
@@ -181,7 +226,7 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, logObj
 		memcClient, ok := memcClients[ai.devType]
 		if !ok {
 			errorsCount += 1
-			logObj.Printf("Unknown device type: %v", ai.devType)
+			log.Printf("Unknown device type: %v", ai.devType)
 			continue
 		}
 
@@ -192,11 +237,11 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, logObj
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		go memcClient.updateMemcache(ai, &activeGoroutines)
+		go memcClient.updateMemcache(ai, &activeGoroutines, errorsCh, dry)
 
 		processed += 1
-		if processed % 10000 == 0 {
-			logObj.Printf("%v: ready %v lines", filePath, processed)
+		if processed%10000 == 0 {
+			log.Printf("%v: ready %v lines", filePath, processed)
 		}
 	}
 
@@ -210,9 +255,9 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, logObj
 	if processed > 0 {
 		errRate := float64(errorsCount) / float64(processed)
 		if errRate <= NormalErrRate {
-			logObj.Printf("%v: Success. Error rate (%v)", filePath, errRate)
+			log.Printf("%v: Success. Error rate (%v)", filePath, errRate)
 		} else {
-			logObj.Fatalf("%v: Fail. Error rate (%v)", filePath, errRate)
+			log.Fatalf("%v: Fail. Error rate (%v)", filePath, errRate)
 		}
 
 	}
@@ -241,16 +286,45 @@ func countErrors(errorsCh chan int, sentinel chan int) {
 // https://gobyexample.com/atomic-counters
 // https://play.golang.org/p/6eFjx029Tmm
 // https://godoc.org/golang.org/x/sync/semaphore
-// TODO: Realize it
-func (mc *MemcachedClient) updateMemcache(ai AppsInstalled, activeGr *uint32) {
+func (mc *MemcachedClient) updateMemcache(ai AppsInstalled, activeGr *uint32, errorsCh chan int, dry bool) {
 	atomic.AddUint32(activeGr, 1)
 	defer atomic.AddUint32(activeGr, ^uint32(0))
 
+	ua := &appsinstalled.UserApps{
+		Lat:  proto.Float64(ai.lat),
+		Lon:  proto.Float64(ai.lon),
+		Apps: ai.apps,
+	}
+	key := fmt.Sprintf("%s:%s", ai.devType, ai.devId)
+	packed, _ := proto.Marshal(ua)
+
+	if dry {
+		log.Printf("%s -> %s", key, mc.addr)
+	} else {
+		ctx := context.TODO()
+		err := mc.sem.Acquire(ctx, 1)
+		if err != nil {
+			log.Fatalf("Can't acquire semaphore for: %v", mc.addr)
+			errorsCh <- 1
+			return
+		}
+
+		err = mc.client.Set(&memcache.Item{
+			Key: key,
+			Value: packed,
+		})
+		if err != nil {
+			log.Fatalf("Can't set %s to memc: %s", key, mc.addr)
+			errorsCh <- 1
+			return
+		}
+		mc.sem.Release(1)
+	}
 }
 
 // Parse line from file to AppsInstalled struct
 // Return error if can't parse line
-func parseLine(line string, logObj log.Logger) (AppsInstalled, error) {
+func parseLine(line string) (AppsInstalled, error) {
 	var ai AppsInstalled
 
 	lineParts := strings.Split(strings.TrimSpace(line), "\t")
@@ -263,32 +337,32 @@ func parseLine(line string, logObj log.Logger) (AppsInstalled, error) {
 	}
 
 	appsStrSlice := strings.Split(lineParts[4], ",")
-	var appsIntSlice []int
+	var appsIntSlice []uint32
 	var hasError bool
 	for _, appStr := range appsStrSlice {
 		appInt, err := strconv.Atoi(appStr)
 		if err != nil {
 			hasError = true
 		} else {
-			appsIntSlice = append(appsIntSlice, appInt)
+			appsIntSlice = append(appsIntSlice, uint32(appInt))
 		}
 	}
 	if hasError {
-		logObj.Fatalf("Not all user apps are digits: %v", line)
+		log.Fatalf("Not all user apps are digits: %v", line)
 	}
 
 	lat, err := strconv.ParseFloat(lineParts[2], 64)
 	lon, err := strconv.ParseFloat(lineParts[3], 64)
 	if err != nil {
-		logObj.Fatalf("Invalid geo coords: %v", line)
+		log.Fatalf("Invalid geo coords: %v", line)
 	}
 
 	ai = AppsInstalled{
 		devType: lineParts[0],
-		devId: lineParts[1],
-		apps: appsIntSlice,
-		lat: lat,
-		lon: lon,
+		devId:   lineParts[1],
+		apps:    appsIntSlice,
+		lat:     lat,
+		lon:     lon,
 	}
 
 	return ai, nil
