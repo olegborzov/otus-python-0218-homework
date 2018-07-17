@@ -10,15 +10,23 @@ Steps (repeat periodically):
 </ol>
 
 ### Requirements
-- Python 3+
-- beautifulsoup4
+<ul>
+    <li>Python 3+</li>
+</ul>
+<b>Python packages</b>:
+<ul>
+    <li>beautifulsoup4</li>
+    <li>aiohttp</li>
+    <li>typing</li>
+</ul>
 
 ### How to run
 ```
 >>> python ycrawler.py 
 optional arguments:
-  --log_dir LOG_DIR     # Path to log dir
-  --store_dir STORE_DIR # Path to dir, for storing files
-  --period NUM          # Seconds between checks
-  --verbose BOOL        # Detailed output
+  -h, --help                show this help message and exit
+  --store_dir STORE_DIR     dir for storing files
+  --log_dir LOG_DIR         dir for log
+  --period PERIOD           seconds between checks
+  --verbose                 detailed output
 ```
