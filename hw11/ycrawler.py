@@ -21,6 +21,7 @@ YNEWS_MAIN_URL = "https://news.ycombinator.com/"
 YNEWS_POST_URL_TEMPLATE = "https://news.ycombinator.com/item?id={id}"
 FETCH_TIMEOUT = 10
 MAX_RETRIES = 3
+SEC_BETWEEN_RETRIES = 3
 
 
 class Fetcher:
@@ -35,14 +36,21 @@ class Fetcher:
         self.store_dir = store_dir
 
     async def load_and_save(self, url: str, post_id: int, link_id: int):
-        content = await self.fetch(url, need_bytes=True)
-        filepath = self.get_path(link_id, post_id)
-        self.write_to_file(filepath, content)
+        try:
+            content = await self.fetch(url, need_bytes=True)
+            filepath = self.get_path(link_id, post_id)
+            self.write_to_file(filepath, content)
 
-        if link_id > 0:
-            self.comments_links_saved += 1
-        else:
-            self.posts_saved += 1
+            if link_id > 0:
+                self.comments_links_saved += 1
+            else:
+                self.posts_saved += 1
+
+            log.debug("Fetched and saved link {} for post {}: {}".format(
+                link_id, post_id, url
+            ))
+        except aiohttp.ClientError:
+            pass
 
     async def fetch(self,
                     url: str,
@@ -60,7 +68,10 @@ class Fetcher:
                     return await response.text()
         except aiohttp.ClientError as ex:
             if retry < MAX_RETRIES:
-                log.debug("Error on url {}, try again".format(url))
+                log.debug("Error on {}, {}: {}. Sleep {} and retry".format(
+                    url, type(ex).__name__, ex.args, SEC_BETWEEN_RETRIES
+                ))
+                asyncio.sleep(SEC_BETWEEN_RETRIES)
                 return await self.fetch(url, need_bytes, retry + 1)
             else:
                 log.error("Can't parse url {}. {}: {}".format(
@@ -94,10 +105,8 @@ class Fetcher:
                     post_id = int(subdir_name)
                     post_ids.add(post_id)
                 except ValueError:
-                    log.error(
-                        "Wrong subdir name (should be number): {}".format(
-                            subdir_name
-                        ))
+                    msg = "Wrong subdir name (should be number): {}"
+                    log.warning(msg.format(subdir_name))
 
         return post_ids
 
@@ -184,11 +193,13 @@ async def check_main_page(fetcher: Fetcher):
 
     posts = parse_main_page(html)
     ready_post_ids = fetcher.get_dir_names()
-    not_ready_posts = {
-        p_id: p_url
-        for p_id, p_url in posts.items()
-        if p_id not in ready_post_ids
-    }
+
+    not_ready_posts = {}
+    for p_id, p_url in posts.items():
+        if p_id not in ready_post_ids:
+            not_ready_posts[p_id] = p_url
+        else:
+            log.debug("Post {} already parsed".format(p_id))
 
     tasks = [
         crawl_post(p_url, p_id, fetcher)
@@ -218,8 +229,12 @@ async def monitor_ycombinator(loop: asyncio.AbstractEventLoop,
         while True:
             log.info("Start crawl: {} iteration".format(iteration))
 
-            fetcher = Fetcher(session, store_dir)
-            await check_main_page(fetcher)
+            try:
+                fetcher = Fetcher(session, store_dir)
+                await check_main_page(fetcher)
+            except Exception:
+                log.exception("Unrecognized error")
+                continue
 
             log.info("Saved {} posts, {} links from comments".format(
                 fetcher.posts_saved, fetcher.comments_links_saved
@@ -240,7 +255,7 @@ def set_logging(dir_path: str = "./", verbose: bool = False):
     log.basicConfig(
         handlers=[file_handler, log.StreamHandler()],
         level=log_level,
-        format='%(asctime)s %(levelname)s %(lineno)d: %(message)s',
+        format='%(asctime)s %(levelname)s {%(pathname)s:%(lineno)d}: %(message)s',
         datefmt='[%H:%M:%S]'
     )
 
