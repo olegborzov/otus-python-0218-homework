@@ -3,10 +3,9 @@ Async crawler for news.ycombinator.com<br>
 Steps (repeat periodically):
 <ol>
     <li>Crawl top 30 posts from main page</li>
-    <li>Check every post is new</li>
-    <li>Crawl links from comments to every post</li>
-    <li>Save the contents of the article and 
-    the pages of the links from the comments to the files</li>
+    <li>Get new posts (not parsed before)</li>
+    <li>Crawl links from comments to posts</li>
+    <li>Save to files the content by links from post and comments</li>
 </ol>
 
 ### Requirements

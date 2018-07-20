@@ -22,6 +22,7 @@ YNEWS_POST_URL_TEMPLATE = "https://news.ycombinator.com/item?id={id}"
 FETCH_TIMEOUT = 10
 MAX_RETRIES = 3
 SEC_BETWEEN_RETRIES = 3
+SENTINEL = "EXIT"
 
 
 class Fetcher:
@@ -29,11 +30,29 @@ class Fetcher:
     Provides counting of saved posts and links from posts comments
     """
 
-    def __init__(self, session: aiohttp.ClientSession, store_dir: str):
-        self.posts_saved = 0
-        self.comments_links_saved = 0
-        self.session = session
+    def __init__(self, store_dir: str, lock: asyncio.Lock):
+        self.__posts_saved = 0
+        self.__comments_links_saved = 0
         self.store_dir = store_dir
+        self.lock = lock
+
+    @property
+    async def posts_saved(self):
+        async with self.lock:
+            return self.__posts_saved
+
+    async def inc_posts_saved(self):
+        async with self.lock:
+            self.__posts_saved += 1
+
+    @property
+    async def comments_links_saved(self):
+        async with self.lock:
+            return self.__comments_links_saved
+
+    async def inc_comments_links_saved(self):
+        async with self.lock:
+            self.__comments_links_saved += 1
 
     async def load_and_save(self, url: str, post_id: int, link_id: int):
         try:
@@ -42,9 +61,9 @@ class Fetcher:
             self.write_to_file(filepath, content)
 
             if link_id > 0:
-                self.comments_links_saved += 1
+                await self.inc_comments_links_saved()
             else:
-                self.posts_saved += 1
+                await self.inc_posts_saved()
 
             log.debug("Fetched and saved link {} for post {}: {}".format(
                 link_id, post_id, url
@@ -61,18 +80,19 @@ class Fetcher:
         As suggested by the aiohttp docs we reuse the session.
         """
         try:
-            async with self.session.get(url) as response:
-                if need_bytes:
-                    return await response.read()
-                else:
-                    return await response.text()
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if need_bytes:
+                        return await response.read()
+                    else:
+                        return await response.text()
         except aiohttp.ClientError as ex:
             if retry < MAX_RETRIES:
-                log.debug("Error on {}, {}: {}. Sleep {} and retry".format(
+                log.debug("{}, {}: {}. Sleep {} sec and retry".format(
                     url, type(ex).__name__, ex.args, SEC_BETWEEN_RETRIES
                 ))
                 asyncio.sleep(SEC_BETWEEN_RETRIES)
-                return await self.fetch(url, need_bytes, retry + 1)
+                return await self.fetch(url, need_bytes, retry+1)
             else:
                 log.error("Can't parse url {}. {}: {}".format(
                     url, type(ex).__name__, ex.args
@@ -89,8 +109,7 @@ class Fetcher:
 
     def create_dirs(self, path: str):
         dirpath = os.path.dirname(path)
-        if not os.path.exists(dirpath):
-            os.makedirs(dirpath)
+        os.makedirs(dirpath, exist_ok=True)
 
     def get_dir_names(self) -> Set[int]:
         """
@@ -147,19 +166,32 @@ async def get_links_from_comments(post_id: int, fetcher: Fetcher) -> List[str]:
         return links
 
 
-async def crawl_post(url: str, post_id: int, fetcher: Fetcher):
+async def crawl_posts_worker(w_id: int,
+                             fetcher: Fetcher,
+                             queue: asyncio.Queue):
     """
     Fetch links from comments to article and save to local file
     """
-    comments_links = await get_links_from_comments(post_id, fetcher)
-    links = [url] + comments_links
+    while True:
+        task = await queue.get()
+        if task == SENTINEL:
+            log.warning("Worker {} got SENTINEL - exit".format(w_id))
+            return
+        else:
+            post_id, url = task
 
-    tasks = [
-        fetcher.load_and_save(link, post_id, ind)
-        for ind, link in enumerate(links)
-    ]
+        comments_links = await get_links_from_comments(post_id, fetcher)
+        links = [url] + comments_links
+        log.debug("Worker {} - found {} links in post {}".format(
+            w_id, len(links), post_id
+        ))
 
-    await asyncio.gather(*tasks)
+        tasks = [
+            fetcher.load_and_save(link, post_id, ind)
+            for ind, link in enumerate(links)
+        ]
+
+        await asyncio.gather(*tasks)
 
 
 def parse_main_page(html: str) -> Dict[int, str]:
@@ -185,11 +217,8 @@ def parse_main_page(html: str) -> Dict[int, str]:
     return posts
 
 
-async def check_main_page(fetcher: Fetcher):
-    try:
-        html = await fetcher.fetch(YNEWS_MAIN_URL, need_bytes=False)
-    except Exception:
-        raise
+async def check_main_page(fetcher: Fetcher, queue: asyncio.Queue):
+    html = await fetcher.fetch(YNEWS_MAIN_URL, need_bytes=False)
 
     posts = parse_main_page(html)
     ready_post_ids = fetcher.get_dir_names()
@@ -201,47 +230,37 @@ async def check_main_page(fetcher: Fetcher):
         else:
             log.debug("Post {} already parsed".format(p_id))
 
-    tasks = [
-        crawl_post(p_url, p_id, fetcher)
-        for p_id, p_url in not_ready_posts.items()
-    ]
-
-    try:
-        await asyncio.gather(*tasks)
-    except Exception as e:
-        log.error("Error retrieving comments for top stories: {}".format(e))
-        raise
+    for p_id, p_url in not_ready_posts.items():
+        await queue.put((p_id, p_url))
 
 
-async def monitor_ycombinator(loop: asyncio.AbstractEventLoop,
-                              to_sleep: int,
-                              store_dir: str):
+async def monitor_ycombinator(fetcher: Fetcher,
+                              queue: asyncio.Queue,
+                              to_sleep: int):
     """
     Periodically check news.ycombinator.com for new articles.
     Parse articles and links from comments and save to local files
     """
 
     iteration = 1
-    async with aiohttp.ClientSession(
-            loop=loop, raise_for_status=True,
-            read_timeout=FETCH_TIMEOUT, conn_timeout=FETCH_TIMEOUT
-    ) as session:
-        while True:
-            log.info("Start crawl: {} iteration".format(iteration))
+    while True:
+        log.info("Start crawl: {} iteration".format(iteration))
 
-            try:
-                fetcher = Fetcher(session, store_dir)
-                await check_main_page(fetcher)
-            except Exception:
-                log.exception("Unrecognized error")
-                continue
+        try:
+            await check_main_page(fetcher, queue)
+        except Exception:
+            log.exception("Unrecognized error -> close all workers and exit")
+            await queue.put(SENTINEL)
+            return
 
-            log.info("Saved {} posts, {} links from comments".format(
-                fetcher.posts_saved, fetcher.comments_links_saved
-            ))
-            log.info("Waiting for {} sec...".format(to_sleep))
-            await asyncio.sleep(to_sleep)
-            iteration += 1
+        posts_saved = await fetcher.posts_saved
+        comments_links_saved = await fetcher.comments_links_saved
+        log.info("Saved {} posts, {} links from comments".format(
+            posts_saved, comments_links_saved
+        ))
+        log.info("Waiting for {} sec...".format(to_sleep))
+        await asyncio.sleep(to_sleep)
+        iteration += 1
 
 
 def set_logging(dir_path: str = "./", verbose: bool = False):
@@ -255,7 +274,8 @@ def set_logging(dir_path: str = "./", verbose: bool = False):
     log.basicConfig(
         handlers=[file_handler, log.StreamHandler()],
         level=log_level,
-        format='%(asctime)s %(levelname)s {%(pathname)s:%(lineno)d}: %(message)s',
+        format='%(asctime)s %(levelname)s '
+               '{%(pathname)s:%(lineno)d}: %(message)s',
         datefmt='[%H:%M:%S]'
     )
 
@@ -283,6 +303,12 @@ def parse_args() -> argparse.Namespace:
         help='seconds between checks'
     )
     parser.add_argument(
+        '--workers',
+        type=int,
+        default=3,
+        help='number of workers to process urls'
+    )
+    parser.add_argument(
         '--verbose',
         action='store_true',
         help='detailed output'
@@ -297,9 +323,17 @@ def main():
     set_logging(args.log_dir, args.verbose)
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(
-        monitor_ycombinator(loop, args.period, args.store_dir)
-    )
+    lock = asyncio.Lock(loop=loop)
+    fetcher = Fetcher(store_dir=args.store_dir, lock=lock)
+    queue = asyncio.Queue(loop=loop)
+
+    workers = [monitor_ycombinator(fetcher, queue, args.period)]
+    workers += [
+        crawl_posts_worker(i, fetcher, queue)
+        for i in range(args.workers)
+    ]
+
+    loop.run_until_complete(asyncio.gather(*workers))
 
     loop.close()
 
