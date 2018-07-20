@@ -5,5 +5,3 @@ My homeworks
 Борзов Олег
 
 slack: Oleg Borzov (olegborzov)
-
-email: mail@olegborzov.ru
