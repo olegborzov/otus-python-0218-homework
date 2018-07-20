@@ -218,7 +218,8 @@ async def get_links_from_comments(post_id: int, fetcher: Fetcher) -> List[str]:
 
 async def monitor_ycombinator(fetcher: Fetcher,
                               queue: asyncio.Queue,
-                              to_sleep: int):
+                              to_sleep: int,
+                              num_workers: int):
     """
     Periodically check news.ycombinator.com for new articles.
     Parse articles and links from comments and save to local files
@@ -232,7 +233,8 @@ async def monitor_ycombinator(fetcher: Fetcher,
             await check_main_page(fetcher, queue)
         except Exception:
             log.exception("Unrecognized error -> close all workers and exit")
-            await queue.put(SENTINEL)
+            for _ in range(num_workers):
+                await queue.put(SENTINEL)
             return
 
         posts_saved = await fetcher.posts_saved
@@ -300,11 +302,13 @@ def main():
     fetcher = Fetcher(store_dir=args.store_dir, lock=lock)
     queue = asyncio.Queue(loop=loop)
 
-    workers = [monitor_ycombinator(fetcher, queue, args.period)]
-    workers += [
+    workers = [
         crawl_posts_worker(i, fetcher, queue)
         for i in range(args.workers)
     ]
+    workers.append(
+        monitor_ycombinator(fetcher, queue, args.period, args.workers)
+    )
 
     loop.run_until_complete(asyncio.gather(*workers))
     loop.close()
