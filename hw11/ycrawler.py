@@ -27,7 +27,7 @@ SENTINEL = "EXIT"
 
 class Fetcher:
     """
-    Provides counting of saved posts and links from posts comments
+    Provides fetching url, saving url content to file, counting of ready links
     """
 
     def __init__(self, store_dir: str, lock: asyncio.Lock):
@@ -55,6 +55,9 @@ class Fetcher:
             self.__comments_links_saved += 1
 
     async def load_and_save(self, url: str, post_id: int, link_id: int):
+        """
+        Fetch url and save content to file
+        """
         try:
             content = await self.fetch(url, need_bytes=True)
             filepath = self.get_path(link_id, post_id)
@@ -76,7 +79,7 @@ class Fetcher:
                     need_bytes: bool = True,
                     retry: int = 0) -> (bytes, str):
         """
-        Fetch a URL using aiohttp returning parsed JSON response.
+        Fetch an URL using aiohttp returning parsed JSON response.
         As suggested by the aiohttp docs we reuse the session.
         """
         try:
@@ -149,21 +152,20 @@ async def get_links_from_comments(post_id: int, fetcher: Fetcher) -> List[str]:
     Fetch comments page and parse links from comments
     """
     url = YNEWS_POST_URL_TEMPLATE.format(id=post_id)
-    links = []
+    links = set()
     try:
         html = await fetcher.fetch(url, need_bytes=False)
 
         soup = BeautifulSoup(html, "html5lib")
-        links = []
         for link in soup.select(".comment a[rel=nofollow]"):
             _url = link.attrs["href"]
             parsed_url = urlparse(_url)
             if parsed_url.scheme and parsed_url.netloc:
-                links.append(_url)
+                links.add(_url)
 
-        return links
+        return list(links)
     except aiohttp.ClientError:
-        return links
+        return list(links)
 
 
 async def crawl_posts_worker(w_id: int,
@@ -328,6 +330,7 @@ def main():
     set_logging(args.log_dir, args.verbose)
 
     loop = asyncio.get_event_loop()
+
     lock = asyncio.Lock(loop=loop)
     fetcher = Fetcher(store_dir=args.store_dir, lock=lock)
     queue = asyncio.Queue(loop=loop)
@@ -339,7 +342,6 @@ def main():
     ]
 
     loop.run_until_complete(asyncio.gather(*workers))
-
     loop.close()
 
 
