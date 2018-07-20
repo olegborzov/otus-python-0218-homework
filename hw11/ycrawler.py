@@ -25,6 +25,11 @@ SEC_BETWEEN_RETRIES = 3
 SENTINEL = "EXIT"
 
 
+############################
+# FETCHER
+############################
+
+
 class Fetcher:
     """
     Provides fetching url, saving url content to file, counting of ready links
@@ -147,25 +152,9 @@ class Fetcher:
             return
 
 
-async def get_links_from_comments(post_id: int, fetcher: Fetcher) -> List[str]:
-    """
-    Fetch comments page and parse links from comments
-    """
-    url = YNEWS_POST_URL_TEMPLATE.format(id=post_id)
-    links = set()
-    try:
-        html = await fetcher.fetch(url, need_bytes=False)
-
-        soup = BeautifulSoup(html, "html5lib")
-        for link in soup.select(".comment a[rel=nofollow]"):
-            _url = link.attrs["href"]
-            parsed_url = urlparse(_url)
-            if parsed_url.scheme and parsed_url.netloc:
-                links.add(_url)
-
-        return list(links)
-    except aiohttp.ClientError:
-        return list(links)
+############################
+# CRAWL POSTS WORKER
+############################
 
 
 async def crawl_posts_worker(w_id: int,
@@ -201,44 +190,30 @@ async def crawl_posts_worker(w_id: int,
         await asyncio.gather(*tasks)
 
 
-def parse_main_page(html: str) -> Dict[int, str]:
+async def get_links_from_comments(post_id: int, fetcher: Fetcher) -> List[str]:
     """
-    Parse articles urls and their ids
+    Fetch comments page and parse links from comments
     """
-    posts = {}
+    url = YNEWS_POST_URL_TEMPLATE.format(id=post_id)
+    links = set()
+    try:
+        html = await fetcher.fetch(url, need_bytes=False)
 
-    soup = BeautifulSoup(html, "html5lib")
-    trs = soup.select("table.itemlist tr.athing")
-    for ind, tr in enumerate(trs):
-        _id, _url = "", ""
-        try:
-            _id = int(tr.attrs["id"])
-            _url = tr.select_one("td.title a.storylink").attrs["href"]
-            posts[_id] = _url
-        except KeyError:
-            log.error("Error on {} post (id: {}, url: {})".format(
-                ind, _id, _url
-            ))
-            continue
+        soup = BeautifulSoup(html, "html5lib")
+        for link in soup.select(".comment a[rel=nofollow]"):
+            _url = link.attrs["href"]
+            parsed_url = urlparse(_url)
+            if parsed_url.scheme and parsed_url.netloc:
+                links.add(_url)
 
-    return posts
+        return list(links)
+    except aiohttp.ClientError:
+        return list(links)
 
 
-async def check_main_page(fetcher: Fetcher, queue: asyncio.Queue):
-    html = await fetcher.fetch(YNEWS_MAIN_URL, need_bytes=False)
-
-    posts = parse_main_page(html)
-    ready_post_ids = fetcher.get_dir_names()
-
-    not_ready_posts = {}
-    for p_id, p_url in posts.items():
-        if p_id not in ready_post_ids:
-            not_ready_posts[p_id] = p_url
-        else:
-            log.debug("Post {} already parsed".format(p_id))
-
-    for p_id, p_url in not_ready_posts.items():
-        await queue.put((p_id, p_url))
+############################
+# CHECK MAIN PAGE WORKER
+############################
 
 
 async def monitor_ycombinator(fetcher: Fetcher,
@@ -268,6 +243,71 @@ async def monitor_ycombinator(fetcher: Fetcher,
         log.info("Waiting for {} sec...".format(to_sleep))
         await asyncio.sleep(to_sleep)
         iteration += 1
+
+
+async def check_main_page(fetcher: Fetcher, queue: asyncio.Queue):
+    html = await fetcher.fetch(YNEWS_MAIN_URL, need_bytes=False)
+
+    posts = parse_main_page(html)
+    ready_post_ids = fetcher.get_dir_names()
+
+    not_ready_posts = {}
+    for p_id, p_url in posts.items():
+        if p_id not in ready_post_ids:
+            not_ready_posts[p_id] = p_url
+        else:
+            log.debug("Post {} already parsed".format(p_id))
+
+    for p_id, p_url in not_ready_posts.items():
+        await queue.put((p_id, p_url))
+
+
+def parse_main_page(html: str) -> Dict[int, str]:
+    """
+    Parse articles urls and their ids
+    """
+    posts = {}
+
+    soup = BeautifulSoup(html, "html5lib")
+    trs = soup.select("table.itemlist tr.athing")
+    for ind, tr in enumerate(trs):
+        _id, _url = "", ""
+        try:
+            _id = int(tr.attrs["id"])
+            _url = tr.select_one("td.title a.storylink").attrs["href"]
+            posts[_id] = _url
+        except KeyError:
+            log.error("Error on {} post (id: {}, url: {})".format(
+                ind, _id, _url
+            ))
+            continue
+
+    return posts
+
+
+############################
+# MAIN
+############################
+
+
+def main():
+    args = parse_args()
+    set_logging(args.log_dir, args.verbose)
+
+    loop = asyncio.get_event_loop()
+
+    lock = asyncio.Lock(loop=loop)
+    fetcher = Fetcher(store_dir=args.store_dir, lock=lock)
+    queue = asyncio.Queue(loop=loop)
+
+    workers = [monitor_ycombinator(fetcher, queue, args.period)]
+    workers += [
+        crawl_posts_worker(i, fetcher, queue)
+        for i in range(args.workers)
+    ]
+
+    loop.run_until_complete(asyncio.gather(*workers))
+    loop.close()
 
 
 def set_logging(dir_path: str = "./", verbose: bool = False):
@@ -323,26 +363,6 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     return args
-
-
-def main():
-    args = parse_args()
-    set_logging(args.log_dir, args.verbose)
-
-    loop = asyncio.get_event_loop()
-
-    lock = asyncio.Lock(loop=loop)
-    fetcher = Fetcher(store_dir=args.store_dir, lock=lock)
-    queue = asyncio.Queue(loop=loop)
-
-    workers = [monitor_ycombinator(fetcher, queue, args.period)]
-    workers += [
-        crawl_posts_worker(i, fetcher, queue)
-        for i in range(args.workers)
-    ]
-
-    loop.run_until_complete(asyncio.gather(*workers))
-    loop.close()
 
 
 if __name__ == '__main__':
