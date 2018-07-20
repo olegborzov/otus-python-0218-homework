@@ -180,6 +180,11 @@ async def crawl_posts_worker(w_id: int,
         else:
             post_id, url = task
 
+        ready_post_ids = fetcher.get_dir_names()
+        if post_id in ready_post_ids:
+            log.debug("Post {} already saved".format(post_id))
+            continue
+
         comments_links = await get_links_from_comments(post_id, fetcher)
         links = [url] + comments_links
         log.debug("Worker {} - found {} links in post {}".format(
