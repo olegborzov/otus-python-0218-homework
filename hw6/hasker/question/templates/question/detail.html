@@ -4,17 +4,16 @@
 
 {% block css %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static "css/auth.css" %}">
 {% endblock %}
 
 {% block title %}
-    Регистрация - {{ block.super }}
+    Пользователь {{ user.username }} - {{ block.super }}
 {% endblock %}
 
 {% block h1 %}
-    Регистрация
+    {{ user.username }}
 {% endblock %}
 
 {% block content %}
-    {% crispy form %}
+
 {% endblock %}

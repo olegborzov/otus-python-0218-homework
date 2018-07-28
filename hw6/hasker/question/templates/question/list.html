@@ -1,0 +1,89 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css %}
+    {{ block.super }}
+{% endblock %}
+
+{% block title %}
+    {{ title }} - {{ block.super }}
+{% endblock %}
+
+{% block h1 %}
+    {% url "question_hot" as hot_url %}
+    {% url "home_page" as home_url %}
+
+    {% if request.path == home_url %}
+        <div class="home_switcher">
+            Новые вопросы |
+            <a href="{{ hot_url }}">Лучшие вопросы</a>
+        </div>
+    {% elif request.path == hot_url %}
+        <div class="home_switcher">
+            <a href="{{ home_url }}">Новые вопросы</a> |
+            Лучшие вопросы
+        </div>
+    {% else %}
+        <h1>{{ title }}</h1>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    <div class="questions_list">
+    {% for question in questions %}
+        <div class="question_summary">
+            <div class="q_left q_sum_part">
+                <div class="q_stat">
+                    <span>{{ question.votes }}</span><br> голосов
+                </div>
+                <div class="q_stat">
+                    <span>{{ question.answers.count }}</span><br> ответов
+                </div>
+            </div>
+            <div class="q_center q_sum_part">
+                <div class="q_title">
+                    <a href="{{ question.url }}">{{ question.title|truncatewords:15 }}</a>
+                </div>
+                <div class="q_tags">
+                    {% for tag in question.tags.all %}
+                        <a href="{{ tag.url }}">{{ tag.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="q_right q_sum_part">
+                <div class="q_author">
+                    Спросил <a href="{{ question.author.url }}">{{ question.author.username }}</a>
+                </div>
+                <div class="q_time">{{ question.published|timesince }} назад</div>
+            </div>
+        </div>
+    {% endfor %}
+
+    {% if is_paginated %}
+        <ul class="pagination pagination-centered">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for i in paginator.page_range %}
+                <li class="page-item" {% if page_obj.number == i %} class="active" {% endif %}>
+                    <a class="page-link" href="?page={{i}}">{{i}}</a>
+                </li>
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    {% endif %}
+    </div>
+{% endblock %}

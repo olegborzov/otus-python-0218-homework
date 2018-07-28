@@ -1,6 +1,5 @@
 from django.forms import (ModelForm, ModelMultipleChoiceField, SelectMultiple,
                           ValidationError)
-from django.urls import reverse_lazy
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit, Layout, HTML, Fieldset, ButtonHolder
@@ -8,7 +7,7 @@ from crispy_forms.layout import Submit, Layout, HTML, Fieldset, ButtonHolder
 from .models import Question, Tag
 
 
-class QuestionAddForm(ModelForm):
+class QuestionForm(ModelForm):
     tags = ModelMultipleChoiceField(
         required=False,
         to_field_name="name",
@@ -25,7 +24,7 @@ class QuestionAddForm(ModelForm):
 
         self.helper = FormHelper()
         self.helper.form_method = 'POST'
-        self.helper.form_action = reverse_lazy("question_add")
+        self.helper.form_action = ""
         self.helper.layout = Layout(
             Fieldset(
                 '',
@@ -46,7 +45,7 @@ class QuestionAddForm(ModelForm):
                 """),
             ),
             ButtonHolder(
-                Submit('add', 'Добавить вопрос', css_class='button white')
+                Submit('add_edit', 'Отправить', css_class='button white')
             )
         )
 

@@ -1,13 +1,13 @@
 from django.shortcuts import render
-from django.views.generic import (ListView,
-                                  CreateView, UpdateView, DeleteView)
+from django.views.generic import (ListView, DetailView,
+                                  CreateView, UpdateView)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.http import HttpResponse
-from django.urls import reverse_lazy
+from django.core.exceptions import PermissionDenied
 
 from .models import Question, Tag
-from .forms import QuestionAddForm
+from .forms import QuestionForm
 
 
 # Create your views here.
@@ -23,13 +23,14 @@ def add_tag(request):
 
 class QuestionList(ListView):
     context_object_name = 'questions'
+    template_name = "question/list.html"
 
+    title = ""
     search_phrase = ""
     sort_by_date = False
-    paginate_by = 20
+    paginate_by = 2
 
     def get_queryset(self):
-        # TODO: Create filter_by_user
         if self.search_phrase:
             questions = Question.objects.filter(
                 Q(title__icontains=self.search_phrase) |
@@ -43,10 +44,22 @@ class QuestionList(ListView):
 
         return questions
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = self.title
+        return context
+
+
+class QuestionDetailView(DetailView):
+    model = Question
+    template_name = "question/detail.html"
+    context_object_name = "question"
+    pk_url_kwarg = "id"
+
 
 class QuestionAddView(LoginRequiredMixin, CreateView):
-    form_class = QuestionAddForm
-    template_name = "question/template_add.html"
+    form_class = QuestionForm
+    template_name = "question/add_edit.html"
 
     def get_success_url(self):
         return self.object.get_absolute_url()
@@ -55,3 +68,33 @@ class QuestionAddView(LoginRequiredMixin, CreateView):
         form.instance.author = self.request.user
         return super().form_valid(form)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Добавить вопрос"
+        return context
+
+
+class QuestionEditView(LoginRequiredMixin, UpdateView):
+    model = Question
+    form_class = QuestionForm
+    pk_url_kwarg = "id"
+    context_object_name = "question"
+    template_name = "question/add_edit.html"
+
+    def get_success_url(self):
+        return self.object.get_absolute_url()
+
+    def get_object(self, *args, **kwargs):
+        obj = super().get_object(*args, **kwargs)
+        if obj.author != self.request.user:
+            raise PermissionDenied()
+
+        return obj
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Изменить вопрос #{}: {}".format(
+            self.object.pk,
+            self.object.title,
+        )
+        return context

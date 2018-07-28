@@ -13,3 +13,7 @@ class User(AbstractUser):
 
     def get_absolute_url(self):
         return reverse('user_profile', kwargs={'username': self.username})
+
+    @property
+    def url(self):
+        return self.get_absolute_url()

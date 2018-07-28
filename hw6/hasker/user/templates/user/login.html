@@ -2,11 +2,6 @@
 {% load static %}
 {% load crispy_forms_tags %}
 
-{% block css %}
-    {{ block.super }}
-    <link rel="stylesheet" href="{% static "css/auth.css" %}">
-{% endblock %}
-
 {% block title %}
     Авторизация - {{ block.super }}
 {% endblock %}

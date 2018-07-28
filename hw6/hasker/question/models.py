@@ -14,10 +14,16 @@ class AbstractQA(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE
     )
+    likers = models.ManyToManyField(settings.AUTH_USER_MODEL)
+    dislikers = models.ManyToManyField(settings.AUTH_USER_MODEL)
 
     class Meta:
         abstract = True
-        ordering = [F('dislikes') - F('likes'), '-published']
+        ordering = [F('dislikers') - F('likers'), '-published']
+
+    @property
+    def votes(self):
+        return self.likers.count() - self.dislikers.count()
 
 
 class Tag(models.Model):
@@ -27,7 +33,11 @@ class Tag(models.Model):
         return self.name
 
     def get_absolute_url(self):
-        return reverse('tag_page', kwargs={'name': self.name})
+        return reverse("question_tag_page", kwargs={'name': self.name})
+
+    @property
+    def url(self):
+        return self.get_absolute_url()
 
 
 class Question(AbstractQA):
@@ -43,6 +53,10 @@ class Question(AbstractQA):
 
     def get_absolute_url(self):
         return reverse('question_page', kwargs={'id': self.pk})
+
+    @property
+    def url(self):
+        return self.get_absolute_url()
 
 
 class Answer(AbstractQA):

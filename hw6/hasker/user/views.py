@@ -36,21 +36,32 @@ class HaskerLogoutView(LoginRequiredMixin, LogoutView):
 
 class HaskerSignupView(NotLoggedInMixin, CreateView):
     form_class = UserSignupForm
-    template_name = "user/signup.html"
+    template_name = "user/signup_edit.html"
     success_url = reverse_lazy("home_page")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Регистрация"
+        return context
 
 
 class HaskerUserEditView(LoginRequiredMixin, UpdateView):
     form_class = UserEditForm
-    template_name = "user/edit.html"
+    template_name = "user/signup_edit.html"
     success_url = reverse_lazy("user_edit")
 
     def get_object(self, queryset=None):
         return self.request.user
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Настройки"
+        return context
+
 
 class UserDetailView(DetailView):
     model = User
+    template_name = "user/detail.html"
     context_object_name = "user"
     slug_url_kwarg = "username"
     slug_field = "username"

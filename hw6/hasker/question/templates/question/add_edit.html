@@ -2,9 +2,16 @@
 {% load static %}
 {% load crispy_forms_tags %}
 
+{% block title %}
+    {{ title|truncatewords:10 }} - {{ block.super }}
+{% endblock %}
+
+{% block h1 %}
+    {{ title|truncatewords:10 }}
+{% endblock %}
+
 {% block css %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static "css/auth.css" %}">
     <link rel="stylesheet" href="{% static "plugins/bootstrap_multiselect/css.css" %}">
 {% endblock %}
 
@@ -49,14 +56,6 @@
             });
         });
     </script>
-{% endblock %}
-
-{% block title %}
-    Добавить вопрос - {{ block.super }}
-{% endblock %}
-
-{% block h1 %}
-    Добавить вопрос
 {% endblock %}
 
 {% block content %}
