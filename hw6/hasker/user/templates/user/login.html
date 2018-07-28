@@ -1,0 +1,28 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static "css/auth.css" %}">
+{% endblock %}
+
+{% block title %}
+    Авторизация - {{ block.super }}
+{% endblock %}
+
+{% block h1 %}
+    Авторизация
+{% endblock %}
+
+{% block content %}
+    {% if next %}
+        {% if user.is_authenticated %}
+            <p>У вас нет доступа к этой странице.</p>
+        {% else %}
+            <p>Авторизуйтесь, для просмотра страницы</p>
+        {% endif %}
+    {% endif %}
+
+    {% crispy form %}
+{% endblock %}

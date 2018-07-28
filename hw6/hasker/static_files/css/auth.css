@@ -1,0 +1,6 @@
+/*
+    Регистрация
+*/
+.form-group label { font-weight: 700; }
+.form-group .help-block, .form-group .controls > ul li { font-size: x-small; }
+.form-group span.help-block strong { color:red; }

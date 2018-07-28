@@ -1,0 +1,54 @@
+{% extends "base/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block css %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static "css/auth.css" %}">
+{% endblock %}
+
+{% block title %}
+    Пользователь {{ user.username }} - {{ block.super }}
+{% endblock %}
+
+{% block h1 %}
+    {{ user.username }}
+{% endblock %}
+
+{% block content %}
+    <p>
+        {% if user.avatar %}
+            <img src="{{ user.avatar.url }}" height=256 />
+        {% else %}
+            <img src="{% static "img/default_avatar.png" %}" height=256 />
+        {% endif %}
+    </p>
+    <p><strong>Username</strong>: {{ user.username }}</p>
+    <p><strong>Email</strong>: {{ user.email }}</p>
+    <p><strong>Дата регистрации</strong>: {{ user.registered }}</p>
+
+    <h2>Вопросы</h2>
+    <div class="qa_list questions">
+    {% for question in user.questions %}
+        <p>
+            <span class="date">{{ question.published|date:"d.m.Y" }}</span>
+            <a href="{% url "question_page" id=question.pk %}">
+                {{ question.title|truncatewords:10 }}
+            </a>
+        </p>
+    {% endfor %}
+    </div>
+
+    <h2>Ответы</h2>
+    <div class="qa_list answers">
+    {% for answer in user.answers %}
+        <p>
+            <span class="date">{{ answer.published|date:"d.m.Y" }}</span>
+            <a href="{% url "question_page" id=answer.question.pk %}#answer_{{ answer.id }}">
+                {{ answer.text|truncatewords:10 }}
+            </a>
+            <span class="parent">(вопрос - {{ answer.question.title|truncatewords:10 }})</span>
+        </p>
+    {% endfor %}
+    </div>
+{% endblock %}

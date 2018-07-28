@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Hasker{% endblock %}</title>
+
+    {% block css %}
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+        <link rel="stylesheet" href="{% static "css/hasker.css" %}">
+    {% endblock %}
+</head>
+
+<body>
+    <div class="container">{% include "base/parts/header.html" %}</div>
+
+    <main role="main" class="container">
+        <div class="row">
+            <div class="col-md-9 blog-main">
+                <h1>{% block h1 %}Hasker{% endblock %}</h1>
+                {% block content %}Test{% endblock %}
+            </div>
+            {% include "base/parts/sidebar.html"%}
+        </div>
+    </main>
+
+    {% block js %}
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+    {% endblock %}
+</body>
+</html>
