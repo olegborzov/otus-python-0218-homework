@@ -3,6 +3,8 @@ homework/
 */.htaccess
 *.DS_Store
 hw5_django*/
+*.sqlite
+*.sqlite3
 
 # Archives
 *.tar
@@ -72,6 +74,7 @@ coverage.xml
 # Django stuff:
 *.log
 local_settings.py
+migrations/
 
 # Flask stuff:
 instance/
