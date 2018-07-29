@@ -37,7 +37,7 @@ class HaskerLogoutView(LoginRequiredMixin, LogoutView):
 class HaskerSignupView(NotLoggedInMixin, CreateView):
     form_class = UserSignupForm
     template_name = "user/signup_edit.html"
-    success_url = reverse_lazy("home_page")
+    success_url = reverse_lazy("login")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

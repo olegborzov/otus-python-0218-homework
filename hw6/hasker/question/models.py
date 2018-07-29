@@ -1,5 +1,4 @@
 from django.db import models
-from django.db.models import F
 from django.urls import reverse
 
 from django.conf import settings
@@ -19,11 +18,25 @@ class AbstractQA(models.Model):
 
     class Meta:
         abstract = True
-        ordering = [F('dislikers') - F('likers'), '-published']
+        ordering = ['-published']
 
     @property
     def votes(self):
         return self.likers.count() - self.dislikers.count()
+
+    def vote(self, user, like=True):
+        if like:
+            self.dislikers.remove(user)
+            if self.likers.filter(pk=user.pk).exists():
+                self.likers.remove(user)
+            else:
+                self.likers.add(user)
+        else:
+            self.likers.remove(user)
+            if self.dislikers.filter(pk=user.pk).exists():
+                self.dislikers.remove(user)
+            else:
+                self.dislikers.add(user)
 
 
 class Tag(models.Model):
@@ -60,7 +73,8 @@ class Question(AbstractQA):
 
 
 class Answer(AbstractQA):
-    is_correct = models.BooleanField("Правильный ответ")
+    text = models.TextField("Ваш ответ", max_length=5000)
+    is_correct = models.BooleanField("Правильный ответ", default=False)
 
     question = models.ForeignKey(
         Question, related_name="answers", on_delete=models.CASCADE

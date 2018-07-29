@@ -20,7 +20,9 @@
                 <h1>{% block h1 %}Hasker{% endblock %}</h1>
                 {% block content %}Test{% endblock %}
             </div>
-            {% include "base/parts/sidebar.html"%}
+            <aside class="col-md-3 blog-sidebar">
+                {% include "base/parts/sidebar.html"%}
+            </aside>
         </div>
     </main>
 

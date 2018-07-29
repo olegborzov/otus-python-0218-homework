@@ -112,11 +112,8 @@ h1 { padding-top: 1rem; }
 /*
     Pagination
  */
-ul.pagination {
-    position: relative;
-    left: 45%;
-    margin: 40px 0;
-}
+ul.pagination { position: relative; margin: 40px 0; }
+ul.pagination-centered { left: 45%; }
 
 
 /*
@@ -129,12 +126,12 @@ ul.pagination {
     display: table;
     width: 100%;
     height: 140px;
-    border-bottom: 1px solid #787878;
     padding: 10px 0;
 }
-.questions_list .question_summary:first-child {
-    border-top: 1px solid #787878;
+.questions_list .question_summary:not(:last-child) {
+    border-bottom: 1px solid #787878;
 }
+
 .questions_list .question_summary .q_sum_part {
     display: table-cell;
     vertical-align: middle;
@@ -155,8 +152,10 @@ ul.pagination {
     width: 60%;
     padding-right: 15px;
 }
-.question_summary .q_center .q_tags { margin-top: 10px; }
-.question_summary .q_center .q_tags a {
+
+/* Tags */
+.q_tags { margin-top: 10px; }
+.q_tags a {
     font-size: small;
     background: #4b9cf3;
     color: white;
@@ -166,3 +165,68 @@ ul.pagination {
 
 /* Right */
 .question_summary .q_right { font-size: small; }
+
+
+/*
+    SIDEBAR
+*/
+.sidebar_questions h4 { margin-bottom: 10px; }
+.sidebar_questions ol li {
+    font-size: small;
+    margin-bottom: 10px;
+}
+.sidebar_questions ol li span {
+    background: #4b9cf3;
+    color: white;
+    margin-right: 10px;
+    padding: 3px 4px;
+
+    float: left;
+    width: 40px;
+    text-align: center;
+}
+
+
+/*
+    QUESTION DETAIL
+*/
+
+/* QA Detail*/
+.qa_detail {
+    display: table;
+    width: 100%;
+    min-height: 150px;
+    padding: 20px 0;
+}
+
+.qa_detail .qa_part {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+/* QA Rate */
+.qa_rate {
+    width: 10%;
+    text-align: center;
+    font-size: x-large;
+}
+
+.qa_rate .arr, .qa_rate span { display: block; }
+.qa_rate .arr { color: #4b9cf3; }
+.qa_rate .arr:hover { color: #2b5f96; text-decoration: none; }
+.qa_rate .arr_up:before { content: "\25B2"; }
+.qa_rate .arr_down:before { content: "\25BC"; }
+
+
+/* QA Sum */
+.qa_detail .qa_sum { padding: 20px; }
+.qa_author_tags { margin-top: 20px; }
+.qa_author_tags .q_tags { float: left; margin-top: 0; }
+.qa_author_tags .qa_author { float: right; font-size: small; }
+.qa_author_tags .qa_author span.qa_dt { margin-right: 15px; }
+
+/* Answers */
+.qa_answers .qa_detail:not(:last-child) { border-bottom: 1px solid #787878; }
+
+
+form#add_answer { margin-top: 40px; }

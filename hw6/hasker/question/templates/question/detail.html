@@ -7,13 +7,129 @@
 {% endblock %}
 
 {% block title %}
-    Пользователь {{ user.username }} - {{ block.super }}
+    {{ question.title|truncatewords:10 }} - {{ block.super }}
 {% endblock %}
 
 {% block h1 %}
-    {{ user.username }}
+    {{ question.title|truncatewords:10 }}
+{% endblock %}
+
+{% block js %}
+    {{ block.super }}
+
+    <script type="text/javascript">
+        $('.qa_rate a.arr').on('click', function () {
+            event.preventDefault();
+
+            let vote_data = this.id.split("_");
+            vote_data = {
+                "vote_type": vote_data[0],
+                "vote_id": vote_data[1],
+                "vote_action": vote_data[2],
+                "csrfmiddlewaretoken":  "{{ csrf_token }}"
+            };
+
+            $.ajax({
+                url: "{% url "vote" %}",
+                dataType: 'text',
+                type: "post",
+                data: vote_data,
+                success: function (data) {
+                    let div_id = "#" + vote_data["vote_type"] + "_" + vote_data["vote_id"];
+                    $(".qa_rate > span", div_id).text(data);
+                }
+            });
+        });
+    </script>
 {% endblock %}
 
 {% block content %}
+    {% if user == question.author %}
+        <div class="edit_question">
+            <a href="{% url "question_edit" id=question.pk %}">Изменить вопрос</a>
+        </div>
+    {% endif %}
 
+    <div id="q_{{ question.id }}" class="qa_detail">
+
+        <div class="qa_rate qa_part">
+            {% if user != question.author %}
+                <a class="arr_up arr" href="#" id="q_{{ question.pk }}_like"></a>
+                <span>{{ question.votes }}</span>
+                <a class="arr_down arr" href="#" id="q_{{ question.pk }}_dislike"></a>
+            {% else %}
+                <span>{{ question.votes }}</span>
+            {% endif %}
+        </div>
+
+        <div class="qa_sum qa_part">
+            <div class="qa_text">{{ question.text|linebreaks }}</div>
+
+            <div class="qa_author_tags">
+
+                <div class="q_tags">
+                    {% for tag in question.tags.all %}
+                        <a href="{{ tag.url }}">{{ tag.name }}</a>
+                    {% endfor %}
+                </div>
+
+                <div class="qa_author">
+                    <span class="qa_dt">{{ question.published }}</span>
+                    <a href="{{ question.author.url }}">
+                        {% if question.author.avatar %}
+                            <img src="{{ question.author.avatar.url }}" width=32 height="32" />
+                        {% else %}
+                            <img src="{% static "img/default_avatar.png" %}" width=32 height="32" />
+                        {% endif %}
+                        {{ question.author.username }}
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    {% if answers %}
+        <div class="qa_answers">
+            <h3 class="answers_header">Ответы</h3>
+            {% for answer in answers %}
+                <div id="a_{{ answer.id }}" class="qa_detail">
+
+                    <div class="qa_rate qa_part">
+                        {% if user != answer.author %}
+                            <a class="arr_up arr" href="#" id="a_{{ answer.pk }}_like"></a>
+                            <span>{{ answer.votes }}</span>
+                            <a class="arr_down arr" href="#" id="a_{{ answer.pk }}_dislike"></a>
+                        {% else %}
+                            <span>{{ answer.votes }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="qa_sum qa_part">
+                        <div class="qa_text">{{ answer.text|linebreaks }}</div>
+
+                        <div class="qa_author_tags">
+                            <div class="qa_author">
+                                <span class="qa_dt">{{ answer.published }}</span>
+                                <a href="{{ answer.author.url }}">
+                                    {% if answer.author.avatar %}
+                                        <img src="{{ answer.author.avatar.url }}" width=32 height="32" />
+                                    {% else %}
+                                        <img src="{% static "img/default_avatar.png" %}" width=32 height="32" />
+                                    {% endif %}
+                                    {{ answer.author.username }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% include "base/parts/paginator.html" with page_obj=answers_page_obj %}
+    {% endif %}
+
+    {% if user.is_authenticated and user != question.author %}
+        {% crispy form %}
+    {% endif %}
 {% endblock %}

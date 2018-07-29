@@ -4,7 +4,24 @@ from django.forms import (ModelForm, ModelMultipleChoiceField, SelectMultiple,
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit, Layout, HTML, Fieldset, ButtonHolder
 
-from .models import Question, Tag
+from .models import Question, Tag, Answer
+
+
+class AnswerForm(ModelForm):
+    class Meta:
+        model = Answer
+        fields = ("text",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.attrs["id"] = "add_answer"
+        self.helper.form_method = 'POST'
+        self.helper.form_action = ""
+        self.helper.add_input(
+            Submit('add', 'Добавить', css_class='btn-primary')
+        )
 
 
 class QuestionForm(ModelForm):

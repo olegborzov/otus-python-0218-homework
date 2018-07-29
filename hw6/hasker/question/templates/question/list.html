@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block title %}
-    {{ title }} - {{ block.super }}
+    {{ title|truncatewords:10 }} - {{ block.super }}
 {% endblock %}
 
 {% block h1 %}
@@ -15,23 +15,17 @@
     {% url "home_page" as home_url %}
 
     {% if request.path == home_url %}
-        <div class="home_switcher">
-            Новые вопросы |
-            <a href="{{ hot_url }}">Лучшие вопросы</a>
-        </div>
+        Новые вопросы | <a href="{{ hot_url }}">Лучшие вопросы</a>
     {% elif request.path == hot_url %}
-        <div class="home_switcher">
-            <a href="{{ home_url }}">Новые вопросы</a> |
-            Лучшие вопросы
-        </div>
+        <a href="{{ home_url }}">Новые вопросы</a> | Лучшие вопросы
     {% else %}
-        <h1>{{ title }}</h1>
+        {{ title|truncatewords:10 }}
     {% endif %}
 {% endblock %}
 
 {% block content %}
     <div class="questions_list">
-    {% for question in questions %}
+    {% for question in object_list %}
         <div class="question_summary">
             <div class="q_left q_sum_part">
                 <div class="q_stat">
@@ -60,30 +54,6 @@
         </div>
     {% endfor %}
 
-    {% if is_paginated %}
-        <ul class="pagination pagination-centered">
-            {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                        <span aria-hidden="true">&laquo;</span>
-                    </a>
-                </li>
-            {% endif %}
-
-            {% for i in paginator.page_range %}
-                <li class="page-item" {% if page_obj.number == i %} class="active" {% endif %}>
-                    <a class="page-link" href="?page={{i}}">{{i}}</a>
-                </li>
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
-                        <span aria-hidden="true">&raquo;</span>
-                    </a>
-                </li>
-            {% endif %}
-        </ul>
-    {% endif %}
+    {% include "base/parts/paginator.html" with page_obj=page_obj %}
     </div>
 {% endblock %}

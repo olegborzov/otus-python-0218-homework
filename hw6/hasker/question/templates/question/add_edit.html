@@ -34,13 +34,13 @@
             });
 
             $('#new_tag_add').on('click', function () {
-                var new_tag = $("#new_tag_val").val();
+                let new_tag = $("#new_tag_val").val();
 
                 $.ajax({
                     url: "{% url "question_tag_add" %}?tag=" + new_tag,
                     dataType: 'text',
                     success: function (data) {
-                        var tags_select = $("#id_tags");
+                        let tags_select = $("#id_tags");
 
                         tags_select.append(
                             "<option value='"+data+"'>"+data+"</option>"
