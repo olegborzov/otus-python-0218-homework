@@ -39,8 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'question.apps.QuestionConfig',
-    'user.apps.UserConfig',
+    'hasker.question.apps.QuestionConfig',
+    'hasker.user.apps.UserConfig',
     'debug_toolbar',
     'crispy_forms'
 ]
@@ -61,7 +61,7 @@ ROOT_URLCONF = 'hasker.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [os.path.join(BASE_DIR, "hasker", 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -133,10 +133,10 @@ USE_TZ = True
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+STATIC_ROOT = os.path.join(BASE_DIR, "hasker", "static")
+MEDIA_ROOT = os.path.join(BASE_DIR, "hasker", "media")
 
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "static_files")]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "hasker", "static_files")]
 
 
 # CRISPY
@@ -150,7 +150,5 @@ INTERNAL_IPS = ALLOWED_HOSTS
 
 PAGINATE_ANSWERS = 30
 PAGINATE_QUESTIONS = 20
-PAGINATE_SIDEBAR_QUESTIONS = 5
 
 TECH_EMAIL = "noreply@hasker.ru"
-

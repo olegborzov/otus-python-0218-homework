@@ -1,7 +1,8 @@
 from django import template
 from django.conf import settings
 from django.db.models import F, Count
-from question.models import Question
+
+from ..models import Question
 
 register = template.Library()
 
@@ -13,5 +14,5 @@ def top_questions():
         dislikes=Count("dislikers"),
     ).order_by(
         F("dislikes") - F("likes"), "-published"
-    )[:settings.PAGINATE_SIDEBAR_QUESTIONS]
+    )[:settings.PAGINATE_QUESTIONS]
     return questions

@@ -2,13 +2,13 @@ from django.forms import ValidationError, ModelForm, SlugField, EmailField
 from django.contrib.auth.forms import (UserCreationForm,
                                        AuthenticationForm)
 from django.urls import reverse_lazy
+from django.conf import settings
 
 from django.core.files.images import ImageFile
 
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
 
-from hasker.settings import MAX_FILE_SIZE
 from .models import User
 
 
@@ -21,13 +21,13 @@ class UserMixin:
 
     def clean_avatar(self):
         content = self.cleaned_data["avatar"]
-        if isinstance(content, ImageFile) and content.size > MAX_FILE_SIZE:
+        if isinstance(content, ImageFile) and content.size > settings.MAX_FILE_SIZE:
             raise ValidationError(
                 "Размер загружаемого файла: %(file_size)s KB. "
                 "Максимально допустимый размер: %(max_file_size)s KB.",
                 params={
                     "file_size": content.size // 1024,
-                    "max_file_size": MAX_FILE_SIZE // 1024
+                    "max_file_size": settings.MAX_FILE_SIZE // 1024
                 },
                 code="exceeding_file_size"
             )

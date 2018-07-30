@@ -21,8 +21,8 @@ from django.conf.urls import url
 
 urlpatterns = [
     # path('admin/', admin.site.urls),
-    path('', include('question.urls')),
-    path('user/', include('user.urls')),
+    path('', include('hasker.question.urls')),
+    path('user/', include('hasker.user.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
