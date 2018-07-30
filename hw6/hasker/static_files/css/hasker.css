@@ -216,6 +216,11 @@ ul.pagination-centered { left: 45%; }
 .qa_rate .arr:hover { color: #2b5f96; text-decoration: none; }
 .qa_rate .arr_up:before { content: "\25B2"; }
 .qa_rate .arr_down:before { content: "\25BC"; }
+.qa_rate .a_correct:before { content: "\2605"; }
+.qa_rate span.a_correct { color: #4b9cf3; }
+.qa_rate a.a_correct { color: #aed9f3; }
+.qa_rate a.a_correct:hover { color: #4b9cf3; text-decoration: none; }
+
 
 
 /* QA Sum */

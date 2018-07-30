@@ -103,6 +103,12 @@
                         {% else %}
                             <span>{{ answer.votes }}</span>
                         {% endif %}
+
+                        {% if answer == question.correct_answer %}
+                            <span class="a_correct"></span>
+                        {% elif user == question.author %}
+                            <a class="a_correct" href="{% url "choose_correct_answer" a_id=answer.id %}"></a>
+                        {% endif %}
                     </div>
 
                     <div class="qa_sum qa_part">

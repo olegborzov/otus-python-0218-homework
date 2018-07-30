@@ -1,6 +1,7 @@
 {% extends "base/base.html" %}
 {% load static %}
 {% load crispy_forms_tags %}
+{% load rupluralize %}
 
 {% block css %}
     {{ block.super }}
@@ -29,10 +30,10 @@
         <div class="question_summary">
             <div class="q_left q_sum_part">
                 <div class="q_stat">
-                    <span>{{ question.votes }}</span><br> голосов
+                    <span>{{ question.votes }}</span><br> {{ question.votes|pluralize:"голос,голоса,голосов" }}
                 </div>
                 <div class="q_stat">
-                    <span>{{ question.answers.count }}</span><br> ответов
+                    <span>{{ question.answers.count }}</span><br> {{ question.votes|pluralize:"ответ,ответа,ответов" }}
                 </div>
             </div>
             <div class="q_center q_sum_part">

@@ -27,7 +27,7 @@ SECRET_KEY = 'kh&qsk!!75bwf0-xkrcu499c8hptob(=27c(hfm0gl8&4l$fai'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 
 # Application definition
@@ -95,15 +95,15 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
-    # {
-    #     'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    # },
-    # {
-    #     'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    # },
-    # {
-    #     'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    # },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
 ]
 
 AUTH_USER_MODEL = "user.User"
@@ -145,4 +145,12 @@ CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 # DEFAULTS
 MAX_FILE_SIZE = 307200  # 300KB
-INTERNAL_IPS = ["127.0.0.1"]
+
+INTERNAL_IPS = ALLOWED_HOSTS
+
+PAGINATE_ANSWERS = 30
+PAGINATE_QUESTIONS = 20
+PAGINATE_SIDEBAR_QUESTIONS = 5
+
+TECH_EMAIL = "noreply@hasker.ru"
+

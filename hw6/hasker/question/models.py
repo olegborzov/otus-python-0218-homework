@@ -63,6 +63,12 @@ class Question(AbstractQA):
     dislikers = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="q_dislikes"
     )
+    correct_answer = models.OneToOneField(
+        "Answer",
+        blank=True, null=True,
+        on_delete=models.CASCADE,
+        related_name="question1"
+    )
 
     def get_absolute_url(self):
         return reverse('question_page', kwargs={'id': self.pk})
@@ -74,7 +80,6 @@ class Question(AbstractQA):
 
 class Answer(AbstractQA):
     text = models.TextField("Ваш ответ", max_length=5000)
-    is_correct = models.BooleanField("Правильный ответ", default=False)
 
     question = models.ForeignKey(
         Question, related_name="answers", on_delete=models.CASCADE

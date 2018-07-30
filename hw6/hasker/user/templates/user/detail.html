@@ -1,6 +1,7 @@
 {% extends "base/base.html" %}
 {% load static %}
 {% load crispy_forms_tags %}
+{% load rupluralize %}
 
 {% block title %}
     Пользователь {{ user.username }} - {{ block.super }}
@@ -22,28 +23,35 @@
     <p><strong>Email</strong>: {{ user.email }}</p>
     <p><strong>Дата регистрации</strong>: {{ user.registered }}</p>
 
-    <h2>Вопросы</h2>
-    <div class="qa_list questions">
-    {% for question in user.questions %}
-        <p>
+    <h2>Лучшие вопросы</h2>
+    <ul class="qa_list questions">
+    {% for question in user.question_set.all|slice:":10" %}
+        <li>
             <span class="date">{{ question.published|date:"d.m.Y" }}</span>
             <a href="{% url "question_page" id=question.pk %}">
                 {{ question.title|truncatewords:10 }}
             </a>
-        </p>
+            (
+                {{ question.votes }} {{ question.votes|pluralize:"голос,голоса,голосов" }},
+                {{ question.answers.count }} {{ question.answers.count|pluralize:"ответ,ответа,ответов" }}
+            )
+        </li>
     {% endfor %}
-    </div>
+    </ul>
 
-    <h2>Ответы</h2>
-    <div class="qa_list answers">
-    {% for answer in user.answers %}
-        <p>
+    <h2>Лучшие ответы</h2>
+    <ul class="qa_list answers">
+    {% for answer in user.answer_set.all|slice:":10" %}
+        <li>
             <span class="date">{{ answer.published|date:"d.m.Y" }}</span>
             <a href="{% url "question_page" id=answer.question.pk %}#answer_{{ answer.id }}">
                 {{ answer.text|truncatewords:10 }}
             </a>
-            <span class="parent">(вопрос - {{ answer.question.title|truncatewords:10 }})</span>
-        </p>
+            (
+                {{ answer.votes }} {{ answer.votes|pluralize:"голос,голоса,голосов" }},
+                вопрос - {{ answer.question.title|truncatewords:10 }}
+            )
+        </li>
     {% endfor %}
-    </div>
+    </ul>
 {% endblock %}

@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, get_object_or_404
 from django.views.generic import (ListView, DetailView,
                                   CreateView, UpdateView)
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -8,21 +8,30 @@ from django.http import (HttpResponse,
 from django.urls import resolve
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.core import paginator
+from django.conf import settings
 
 from .models import Question, Answer, Tag
 from .forms import QuestionForm, AnswerForm
 
 
 # Create your views here.
-def test_index(request):
-    return render(request, "base/base.html")
-
-
 def add_tag(request):
     tag_val = request.GET.get('tag', None)
     tag_val = tag_val.lower()
     new_tag = Tag.objects.get_or_create(name=tag_val)
     return HttpResponse(new_tag[0].name)
+
+
+def choose_correct_answer(request, a_id):
+    try:
+        answer = Answer.objects.get(pk=a_id)
+    except (ObjectDoesNotExist,):
+        return HttpResponseBadRequest()
+
+    answer.question.correct_answer = answer
+    answer.question.save()
+
+    return redirect(answer.question.url)
 
 
 def vote(request):
@@ -63,7 +72,7 @@ class QuestionList(ListView):
     search_phrase = ""
     tag_name = ""
     sort_by_date = False
-    paginate_by = 10
+    paginate_by = settings.PAGINATE_QUESTIONS
 
     def dispatch(self, request, *args, **kwargs):
         url_name = resolve(self.request.path).url_name
@@ -86,7 +95,8 @@ class QuestionList(ListView):
                 Q(text__icontains=self.search_phrase)
             )
         elif self.tag_name:
-            questions = Question.objects.filter(tags__name=self.tag_name)
+            tag = get_object_or_404(Tag, name=self.tag_name)
+            questions = tag.questions
         else:
             questions = Question.objects.all()
 
@@ -113,7 +123,7 @@ class QuestionDetailView(DetailView):
     context_object_name = "question"
     pk_url_kwarg = "id"
 
-    answers_paginate_by = 10
+    answers_paginate_by = settings.PAGINATE_ANSWERS
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

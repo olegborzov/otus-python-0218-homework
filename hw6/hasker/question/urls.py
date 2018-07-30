@@ -31,6 +31,11 @@ urlpatterns = [
         name="question_edit"
     ),
     path("vote/", views.vote, name="vote"),
+    path(
+        "choose_answer/<int:a_id>/",
+        views.choose_correct_answer,
+        name="choose_correct_answer"
+    ),
 
     # Tags
     path("tag/add/", views.add_tag, name="question_tag_add"),
