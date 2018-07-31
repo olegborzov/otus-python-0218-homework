@@ -39,7 +39,7 @@ class UserSignupForm(UserMixin, UserCreationForm):
 
     helper = FormHelper()
     helper.form_method = 'POST'
-    helper.form_action = reverse_lazy("signup")
+    helper.form_action = reverse_lazy("user:signup")
     helper.add_input(
         Submit('signup', 'Зарегистрироваться', css_class='btn-primary')
     )
@@ -50,7 +50,7 @@ class UserEditForm(UserMixin, ModelForm):
 
     helper = FormHelper()
     helper.form_method = 'POST'
-    helper.form_action = reverse_lazy("user_edit")
+    helper.form_action = reverse_lazy("user:edit")
     helper.add_input(
         Submit('edit', 'Изменить', css_class='btn-primary')
     )
@@ -59,5 +59,5 @@ class UserEditForm(UserMixin, ModelForm):
 class LoginForm(AuthenticationForm):
     helper = FormHelper()
     helper.form_method = 'POST'
-    helper.form_action = reverse_lazy("login")
+    helper.form_action = reverse_lazy("user:login")
     helper.add_input(Submit('login', 'Войти', css_class='btn-primary'))

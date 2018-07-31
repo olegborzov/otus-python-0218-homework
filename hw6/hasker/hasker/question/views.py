@@ -77,15 +77,15 @@ class QuestionList(ListView):
     def dispatch(self, request, *args, **kwargs):
         url_name = resolve(self.request.path).url_name
 
-        if url_name == "question_tag_page":
+        if url_name == "detail":
             self.tag_name = self.kwargs.get("name", "")
             self.title = "Тег: {}".format(self.tag_name)
-        elif url_name == "question_search_results":
+        elif url_name == "search_results":
             self.search_phrase = self.request.GET.get("q", "")
             self.title = "Результаты по запросу: {}".format(self.search_phrase)
             if self.search_phrase.startswith("tag:"):
                 tag_name = self.search_phrase[4:]
-                return redirect("question_tag_page", name=tag_name)
+                return redirect("question:tag:detail", name=tag_name)
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):

@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import CreateView, UpdateView, DetailView
 
 from django.shortcuts import redirect
-from django.urls import reverse_lazy, reverse
+from django.urls import reverse_lazy
 
 from .forms import UserSignupForm, UserEditForm, LoginForm
 from .models import User
@@ -21,7 +21,7 @@ class NotLoggedInMixin(UserPassesTestMixin):
     def handle_no_permission(self):
         if self.raise_exception:
             raise PermissionDenied(self.get_permission_denied_message())
-        return redirect(reverse("home_page"))
+        return redirect("question:home")
 
 
 class HaskerLoginView(NotLoggedInMixin, LoginView):
@@ -31,13 +31,13 @@ class HaskerLoginView(NotLoggedInMixin, LoginView):
 
 
 class HaskerLogoutView(LoginRequiredMixin, LogoutView):
-    next = reverse_lazy("home_page")
+    next = reverse_lazy("question:home")
 
 
 class HaskerSignupView(NotLoggedInMixin, CreateView):
     form_class = UserSignupForm
     template_name = "user/signup_edit.html"
-    success_url = reverse_lazy("login")
+    success_url = reverse_lazy("user:login")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -48,7 +48,7 @@ class HaskerSignupView(NotLoggedInMixin, CreateView):
 class HaskerUserEditView(LoginRequiredMixin, UpdateView):
     form_class = UserEditForm
     template_name = "user/signup_edit.html"
-    success_url = reverse_lazy("user_edit")
+    success_url = reverse_lazy("user:edit")
 
     def get_object(self, queryset=None):
         return self.request.user

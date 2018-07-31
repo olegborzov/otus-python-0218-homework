@@ -3,6 +3,7 @@ from django.urls import path
 from . import views
 
 
+app_name = 'user'
 urlpatterns = [
     # Auth
     path("login/", views.HaskerLoginView.as_view(), name="login"),
@@ -11,10 +12,10 @@ urlpatterns = [
 
 
     # User pages
-    path("settings/", views.HaskerUserEditView.as_view(), name="user_edit"),
+    path("settings/", views.HaskerUserEditView.as_view(), name="edit"),
     path(
         "<slug:username>/",
         views.UserDetailView.as_view(),
-        name="user_profile"
+        name="profile"
     ),
 ]

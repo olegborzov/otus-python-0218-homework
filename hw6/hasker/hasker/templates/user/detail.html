@@ -28,7 +28,7 @@
     {% for question in user.question_set.all|slice:":10" %}
         <li>
             <span class="date">{{ question.published|date:"d.m.Y" }}</span>
-            <a href="{% url "question_page" id=question.pk %}">
+            <a href="{% url "question:detail" id=question.pk %}">
                 {{ question.title|truncatewords:10 }}
             </a>
             (
@@ -44,7 +44,7 @@
     {% for answer in user.answer_set.all|slice:":10" %}
         <li>
             <span class="date">{{ answer.published|date:"d.m.Y" }}</span>
-            <a href="{% url "question_page" id=answer.question.pk %}#answer_{{ answer.id }}">
+            <a href="{% url "question:detail" id=answer.question.pk %}#answer_{{ answer.id }}">
                 {{ answer.text|truncatewords:10 }}
             </a>
             (

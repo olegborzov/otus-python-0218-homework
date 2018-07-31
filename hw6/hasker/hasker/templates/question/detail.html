@@ -30,7 +30,7 @@
             };
 
             $.ajax({
-                url: "{% url "vote" %}",
+                url: "{% url "question:vote" %}",
                 dataType: 'text',
                 type: "post",
                 data: vote_data,
@@ -46,7 +46,7 @@
 {% block content %}
     {% if user == question.author %}
         <div class="edit_question">
-            <a href="{% url "question_edit" id=question.pk %}">Изменить вопрос</a>
+            <a href="{% url "question:edit" id=question.pk %}">Изменить вопрос</a>
         </div>
     {% endif %}
 
@@ -107,7 +107,7 @@
                         {% if answer == question.correct_answer %}
                             <span class="a_correct"></span>
                         {% elif user == question.author %}
-                            <a class="a_correct" href="{% url "choose_correct_answer" a_id=answer.id %}"></a>
+                            <a class="a_correct" href="{% url "question:choose_correct_answer" a_id=answer.id %}"></a>
                         {% endif %}
                     </div>
 

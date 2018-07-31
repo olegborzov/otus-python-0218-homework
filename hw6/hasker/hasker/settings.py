@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'hasker.question.apps.QuestionConfig',
     'hasker.user.apps.UserConfig',
     'debug_toolbar',
-    'crispy_forms'
+    'crispy_forms',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -95,22 +96,22 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    # },
+    # {
+    #     'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    # },
 ]
 
 AUTH_USER_MODEL = "user.User"
-LOGIN_URL = "login"
-LOGOUT_URL = "logout"
-LOGIN_REDIRECT_URL = "home_page"
-LOGOUT_REDIRECT_URL = "home_page"
+LOGIN_URL = "user:login"
+LOGOUT_URL = "user:logout"
+LOGIN_REDIRECT_URL = "question:home"
+LOGOUT_REDIRECT_URL = "question:home"
 
 
 # Internationalization
@@ -152,3 +153,16 @@ PAGINATE_ANSWERS = 30
 PAGINATE_QUESTIONS = 20
 
 TECH_EMAIL = "noreply@hasker.ru"
+
+
+# REST API
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'PAGE_SIZE': PAGINATE_QUESTIONS,
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination'
+}

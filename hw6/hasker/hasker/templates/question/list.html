@@ -12,8 +12,8 @@
 {% endblock %}
 
 {% block h1 %}
-    {% url "question_hot" as hot_url %}
-    {% url "home_page" as home_url %}
+    {% url "question:hot" as hot_url %}
+    {% url "question:home" as home_url %}
 
     {% if request.path == home_url %}
         Новые вопросы | <a href="{{ hot_url }}">Лучшие вопросы</a>

@@ -37,7 +37,7 @@
                 let new_tag = $("#new_tag_val").val();
 
                 $.ajax({
-                    url: "{% url "question_tag_add" %}?tag=" + new_tag,
+                    url: "{% url "question:tag:add" %}?tag=" + new_tag,
                     dataType: 'text',
                     success: function (data) {
                         let tags_select = $("#id_tags");

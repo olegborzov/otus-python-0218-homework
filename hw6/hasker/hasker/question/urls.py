@@ -1,8 +1,13 @@
-from django.urls import path
+from django.urls import path, include
 
 from . import views
 
 
+app_name = 'question'
+tags_patterns = ([
+    path("add/", views.add_tag, name="add"),
+    path("<str:name>/", views.QuestionList.as_view(), name="detail"),
+], "tag")
 urlpatterns = [
     # Main page
     path(
@@ -10,45 +15,41 @@ urlpatterns = [
         views.QuestionList.as_view(
             sort_by_date=True, title="Главная"
         ),
-        name="home_page"
+        name="home"
     ),
     path(
         "hot/",
         views.QuestionList.as_view(title="Лучшие вопросы"),
-        name="question_hot"
+        name="hot"
     ),
 
     # Questions
-    path("ask/", views.QuestionAddView.as_view(), name="question_add"),
     path(
         "question/<int:id>/",
         views.QuestionDetailView.as_view(),
-        name="question_page"
+        name="detail"
     ),
     path(
         "question/<int:id>/edit/",
         views.QuestionEditView.as_view(),
-        name="question_edit"
+        name="edit"
     ),
+    path("ask/", views.QuestionAddView.as_view(), name="add"),
     path("vote/", views.vote, name="vote"),
     path(
         "choose_answer/<int:a_id>/",
         views.choose_correct_answer,
         name="choose_correct_answer"
     ),
-
-    # Tags
-    path("tag/add/", views.add_tag, name="question_tag_add"),
-    path(
-        "tag/<str:name>/",
-        views.QuestionList.as_view(),
-        name="question_tag_page"
-    ),
-
-    # Search
     path(
         "search/",
         views.QuestionList.as_view(),
-        name="question_search_results"
-    )
+        name="search_results"
+    ),
+
+    # Tags
+    path("tag/", include(([
+        path("add/", views.add_tag, name="add"),
+        path("<str:name>/", views.QuestionList.as_view(), name="detail"),
+    ], "tag"))),
 ]

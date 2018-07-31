@@ -46,7 +46,7 @@ class Tag(models.Model):
         return self.name
 
     def get_absolute_url(self):
-        return reverse("question_tag_page", kwargs={'name': self.name})
+        return reverse("question:tag:detail", kwargs={'name': self.name})
 
     @property
     def url(self):
@@ -71,7 +71,7 @@ class Question(AbstractQA):
     )
 
     def get_absolute_url(self):
-        return reverse('question_page', kwargs={'id': self.pk})
+        return reverse('question:detail', kwargs={'id': self.pk})
 
     @property
     def url(self):
