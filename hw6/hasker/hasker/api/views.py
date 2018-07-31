@@ -1,6 +1,5 @@
 from django.db.models import F, Q, Count
 
-from rest_framework import viewsets
 from rest_framework import generics
 
 from hasker.question.views import Question, Answer

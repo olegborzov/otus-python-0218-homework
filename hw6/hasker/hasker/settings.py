@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 """
 
 import os
+from datetime import timedelta
 
 from django.urls import reverse_lazy
 
@@ -155,7 +156,7 @@ PAGINATE_QUESTIONS = 20
 TECH_EMAIL = "noreply@hasker.ru"
 
 
-# REST API
+# DRF API
 
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
@@ -163,6 +164,17 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
     'PAGE_SIZE': PAGINATE_QUESTIONS,
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination'
 }
+
+# DRF SIMPLE JWT
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ALGORITHM': 'HS512',
+}
+

@@ -41,7 +41,6 @@ class QuestionSerializer(serializers.HyperlinkedModelSerializer):
         return question.answers.count()
 
 
-
 class AnswerSerializer(serializers.HyperlinkedModelSerializer):
     author = serializers.SlugRelatedField(
         many=False, read_only=True, slug_field="username"
