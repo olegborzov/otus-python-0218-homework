@@ -28,7 +28,7 @@ SECRET_KEY = 'kh&qsk!!75bwf0-xkrcu499c8hptob(=27c(hfm0gl8&4l$fai'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
 
 
 # Application definition
@@ -157,7 +157,6 @@ TECH_EMAIL = "noreply@hasker.ru"
 
 
 # DRF API
-
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
