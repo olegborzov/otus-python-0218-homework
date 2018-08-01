@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'crispy_forms',
     'rest_framework',
+    'rest_framework_swagger',
 ]
 
 MIDDLEWARE = [
