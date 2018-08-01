@@ -50,14 +50,14 @@ class AuthTest(APITestCase):
     def get_tokens(self):
         url = reverse("api:token:token_obtain_pair")
         response = self.client.post(url, self.good_credentials, format="json")
-        return response.json()
+        return response.data
 
     def test_good_credentials_get_token(self):
         url = reverse("api:token:token_obtain_pair")
         response = self.client.post(url, self.good_credentials, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("access", response.json())
-        self.assertIn("refresh", response.json())
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
 
     def test_bad_credentials_get_token(self):
         url = reverse("api:token:token_obtain_pair")
@@ -103,7 +103,7 @@ class AuthTest(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_get_pages_good_auth(self):
+    def test_good_token_get_pages(self):
         tokens = self.get_tokens()
         self.client.credentials(
             HTTP_AUTHORIZATION='Bearer {}'.format(tokens["access"])
@@ -116,7 +116,7 @@ class AuthTest(APITestCase):
             )
             self.assertEqual(response['content-type'], 'application/json')
 
-    def test_get_pages_bad_auth(self):
+    def test_bad_token_get_pages(self):
         self.client.credentials(
             HTTP_AUTHORIZATION='Bearer {}'.format("bad_token")
         )

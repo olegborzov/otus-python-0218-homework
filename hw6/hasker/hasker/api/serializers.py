@@ -33,10 +33,6 @@ class QuestionSerializer(serializers.HyperlinkedModelSerializer):
             "tags", "answers", "answers_count"
         )
 
-    def get_tags(self):
-        tags = [tag.name for tag in self.instance.name]
-        return tags
-
     def get_answers_count(self, question):
         return question.answers.count()
 
@@ -45,15 +41,10 @@ class AnswerSerializer(serializers.HyperlinkedModelSerializer):
     author = serializers.SlugRelatedField(
         many=False, read_only=True, slug_field="username"
     )
-    question = serializers.HyperlinkedIdentityField(
-        many=False, read_only=True,
-        view_name="api:question:detail", lookup_url_kwarg="q_id",
-        lookup_field="question_id"
-    )
 
     class Meta:
         model = Answer
         fields = (
-            "id", "text", "author", "published", "votes", "question",
+            "id", "text", "author", "published", "votes",
         )
 

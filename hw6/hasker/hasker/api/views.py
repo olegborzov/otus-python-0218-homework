@@ -1,4 +1,5 @@
 from django.db.models import F, Q, Count
+from django.shortcuts import get_object_or_404
 
 from rest_framework import generics
 
@@ -40,8 +41,8 @@ class QuestionDetailView(generics.RetrieveAPIView):
 
 class AnswerListView(generics.ListAPIView):
     serializer_class = serializers.AnswerSerializer
-    queryset = Answer.objects.all()
 
     def get_queryset(self):
         q_id = self.kwargs.get("q_id")
-        return Answer.objects.filter(question_id=q_id)
+        question = get_object_or_404(Question, pk=q_id)
+        return question.answers.all()
