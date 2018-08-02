@@ -33,7 +33,7 @@
                     <span>{{ question.votes }}</span><br> {{ question.votes|pluralize:"голос,голоса,голосов" }}
                 </div>
                 <div class="q_stat">
-                    <span>{{ question.answers.count }}</span><br> {{ question.votes|pluralize:"ответ,ответа,ответов" }}
+                    <span>{{ question.answers.count }}</span><br> {{ question.answers.count|pluralize:"ответ,ответа,ответов" }}
                 </div>
             </div>
             <div class="q_center q_sum_part">
