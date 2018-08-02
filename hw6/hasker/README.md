@@ -17,6 +17,11 @@ Q&A analog of stackoverflow on Django 2.0
     <li>Pillow</li>
 </ul>
 
+### Run Docker
+```
+docker run --rm -it -p 8000:80 ubuntu /bin/bash
+```
+
 ### Prepare
 ```
 apt-get update
