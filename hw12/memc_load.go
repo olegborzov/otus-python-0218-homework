@@ -4,7 +4,6 @@ import (
 	"./appsinstalled"
 	"bufio"
 	"compress/gzip"
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -28,18 +27,6 @@ const (
 	NormalErrRate       = 0.01
 )
 
-type CommandArgs struct {
-	test         bool
-	dry          bool
-	logPath      string
-	filesPattern string
-
-	idfa string
-	gaid string
-	adid string
-	dvid string
-}
-
 type MemcachedClient struct {
 	addr string
 	client memcache.Client
@@ -55,31 +42,41 @@ type AppsInstalled struct {
 }
 
 func main() {
-	comArgs := parseArgs()
+	isTest := flag.Bool("test", false, "test protobuf")
+	isDry := flag.Bool("dry", false, "debug mode (without sending to memcached)")
+	logPath := flag.String("log", "./memc.log", "path to log file")
+	filesPattern := flag.String("pattern", "/data/appsinstalled/*.tsv.gz", "files path pattern")
 
-	logfile, err := os.OpenFile(comArgs.logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	idfa := flag.String("idfa", "127.0.0.1:33013", "ip and port of idfa memcached server")
+	gaid := flag.String("gaid", "127.0.0.1:33014", "ip and port of gaid memcached server")
+	adid := flag.String("adid", "127.0.0.1:33015", "ip and port of adid memcached server")
+	dvid := flag.String("dvid", "127.0.0.1:33016", "ip and port of dvid memcached server")
+
+	flag.Parse()
+
+	if *isTest {
+		prototest()
+		return
+	}
+
+	logfile, err := os.OpenFile(*logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		log.Fatalf("Cannot open log file: %s", comArgs.logPath)
+		log.Fatalf("Cannot open log file: %s", *logPath)
 		return
 	}
 	log.SetOutput(logfile)
 	defer logfile.Close()
 
-	if comArgs.test {
-		prototest()
-		return
-	}
+	memcClients := createMemcachedClientsMap(*idfa, *gaid, *adid, *dvid)
 
-	memcClients := createMemcachedClientsMap(comArgs)
-
-	files, err := filepath.Glob(comArgs.filesPattern)
+	files, err := filepath.Glob(*filesPattern)
 	if err != nil || len(files) < 1 {
-		log.Fatalf("Files by pattern %v not found. Exit", comArgs.filesPattern)
+		log.Fatalf("Files by pattern %v not found. Exit", *filesPattern)
 		return
 	}
 
 	for _, filePath := range files {
-		processFile(filePath, memcClients, comArgs.dry)
+		processFile(filePath, memcClients, *isDry)
 	}
 }
 
@@ -118,58 +115,30 @@ func prototest() {
 	os.Exit(0)
 }
 
-func createMemcachedClientsMap(comArgs CommandArgs) map[string]MemcachedClient {
+func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
 	memcClients := make(map[string]MemcachedClient)
 	memcClients["idfa"] = MemcachedClient{
-		comArgs.idfa,
-		*memcache.New(comArgs.idfa),
+		idfa,
+		*memcache.New(idfa),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 	memcClients["gaid"] = MemcachedClient{
-		comArgs.gaid,
-		*memcache.New(comArgs.gaid),
+		gaid,
+		*memcache.New(gaid),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 	memcClients["adid"] = MemcachedClient{
-		comArgs.adid,
-		*memcache.New(comArgs.adid),
+		adid,
+		*memcache.New(adid),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 	memcClients["dvid"] = MemcachedClient{
-		comArgs.dvid,
-		*memcache.New(comArgs.dvid),
+		dvid,
+		*memcache.New(dvid),
 		*semaphore.NewWeighted(int64(MaxMemcConns)),
 	}
 
 	return memcClients
-}
-
-func parseArgs() CommandArgs {
-	isTest := flag.Bool("test", false, "test protobuf")
-	isDry := flag.Bool("dry", false, "debug mode (without sending to memcached)")
-	logPath := flag.String("log", "./memc.log", "path to log file")
-	filesPattern := flag.String("pattern", "/data/appsinstalled/*.tsv.gz", "files path pattern")
-
-	idfa := flag.String("idfa", "127.0.0.1:33013", "ip and port of idfa memcached server")
-	gaid := flag.String("gaid", "127.0.0.1:33014", "ip and port of gaid memcached server")
-	adid := flag.String("adid", "127.0.0.1:33015", "ip and port of adid memcached server")
-	dvid := flag.String("dvid", "127.0.0.1:33016", "ip and port of dvid memcached server")
-
-	flag.Parse()
-
-	comArgs := CommandArgs{
-		*isTest,
-		*isDry,
-		*logPath,
-		*filesPattern,
-
-		*idfa,
-		*gaid,
-		*adid,
-		*dvid,
-	}
-
-	return comArgs
 }
 
 // Read file line by line
@@ -301,15 +270,13 @@ func (mc *MemcachedClient) updateMemcache(ai AppsInstalled, activeGr *uint32, er
 	if dry {
 		log.Printf("%s -> %s", key, mc.addr)
 	} else {
-		ctx := context.TODO()
-		err := mc.sem.Acquire(ctx, 1)
-		if err != nil {
+		if !mc.sem.TryAcquire(1) {
 			log.Fatalf("Can't acquire semaphore for: %v", mc.addr)
 			errorsCh <- 1
 			return
 		}
 
-		err = mc.client.Set(&memcache.Item{
+		err := mc.client.Set(&memcache.Item{
 			Key: key,
 			Value: packed,
 		})

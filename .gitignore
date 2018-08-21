@@ -2,7 +2,9 @@
 homework/
 */.htaccess
 *.DS_Store
-hw5_django*/
+hw5_django_tutorial/
+hw10/
+hw4/doc_root/
 *.sqlite
 *.sqlite3
 

@@ -1,7 +1,7 @@
 # MemcLoad
 GO version of memc_load_multiprocessing.py.<br>
 
-# Algorythm
+# Algorithm
 When initializing, a Memcache client map is created for the specified addresses in the arguments.<br>
 The script reads the files line by line. <br>
 For each successfully read line, an AppsInstalled structure is created 
