@@ -18,15 +18,15 @@ import (
 )
 
 const (
-	ChannelSize			= 100
-	NormalErrRate       = 0.01
-	SentinelFlag		= -1
+	ChannelSize   = 100
+	NormalErrRate = 0.01
+	SentinelFlag  = -1
 )
 
 type MemcachedClient struct {
-	addr string
+	addr   string
 	client memcache.Client
-	ch chan *AppsInstalled
+	ch     chan *AppsInstalled
 }
 
 type AppsInstalled struct {
@@ -282,13 +282,13 @@ func (mc MemcachedClient) worker(errorsCh chan int, dry bool) {
 
 		if dry {
 			readyLines += 1
-			if readyLines % 250000 == 0 {
+			if readyLines%250000 == 0 {
 				errorsCh <- 1
 				log.Printf("%v - ready %v lines", mc.addr, readyLines)
 			}
 		} else {
 			err := mc.client.Set(&memcache.Item{
-				Key: key,
+				Key:   key,
 				Value: packed,
 			})
 			if err != nil {
