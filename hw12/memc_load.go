@@ -145,9 +145,6 @@ func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]Memcach
 // Read file line by line
 // Parse each line to AppsInstalled struct and send it to MemcachedClient
 // Count errors from goroutines in separate goroutine
-// Help Links:
-// https://golang.org/pkg/sync/#WaitGroup
-// https://play.golang.org/p/uvQMci2ru5E
 func processFile(filePath string, memcClients map[string]MemcachedClient, dry bool) {
 	log.Printf("%v: start processing", filePath)
 
@@ -230,8 +227,7 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 			log.Fatalf("%v: Fail. Error rate %v/%v = %v", filePath, errorsCount, processed, errRate)
 		}
 	}
-	//renameFile(filePath)
-	return
+	renameFile(filePath)
 }
 
 // Count errors from MemcachedClient workers
