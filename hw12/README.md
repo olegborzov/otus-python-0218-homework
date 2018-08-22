@@ -3,14 +3,14 @@ GO version of memc_load_multiprocessing.py
 
 ### How to run
 ```
->>> go run memc_load.go 
-optional arguments:
-  -test                # To run protobuf test  
-  -log LOG             # Path to log file
-  -dry                 # Debug mode
-  -pattern PATTERN     # Pattern of files paths, where logs stored
-  -idfa IDFA           # Address of IDFA memcache server
-  -gaid GAID           # Address of GAID memcache server
-  -adid ADID           # Address of ADID memcache server
-  -dvid DVID           # Address of DVID memcache server
+>>> go run memc_load.go -help
+  -adid string          ip and port of adid memcached server (default "127.0.0.1:33015")
+  -dry                  debug mode (without sending to memcached)
+  -dvid string          ip and port of dvid memcached server (default "127.0.0.1:33016")
+  -gaid string          ip and port of gaid memcached server (default "127.0.0.1:33014")
+  -idfa string          ip and port of idfa memcached server (default "127.0.0.1:33013")
+  -log string           path to log file (default "./memc.log")
+  -pattern string       files path pattern (default "/data/appsinstalled/*.tsv.gz")
+  -test                 test protobuf
+>>> go run memc_log.go -dry -pattern "/data/appsinstalled/*.tsv.gz"
 ```

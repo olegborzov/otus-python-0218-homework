@@ -209,7 +209,7 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 		memcCl.ch <- &ai
 
 		processed += 1
-		if processed%100000 == 0 {
+		if processed%1000000 == 0 {
 			log.Printf("%v: ready %v lines", filePath, processed)
 		}
 	}
@@ -225,12 +225,13 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 	if processed > 0 {
 		errRate := float64(errorsCount) / float64(processed)
 		if errRate <= NormalErrRate {
-			log.Printf("%v: Success. Error rate (%v)", filePath, errRate)
+			log.Printf("%v: Success. Error rate %v/%v = %v", filePath, errorsCount, processed, errRate)
 		} else {
-			log.Fatalf("%v: Fail. Error rate (%v)", filePath, errRate)
+			log.Fatalf("%v: Fail. Error rate %v/%v = %v", filePath, errorsCount, processed, errRate)
 		}
 	}
-	renameFile(filePath)
+	//renameFile(filePath)
+	return
 }
 
 // Count errors from MemcachedClient workers
@@ -246,6 +247,7 @@ func countErrorsWorker(errorsCh, errorsResultCh chan int, workersCount int) {
 		} else if err == SentinelFlag {
 			workersCompleted += 1
 			if workersCompleted == workersCount {
+				log.Printf("Completed all workers")
 				errorsResultCh <- errorsCount
 				return
 			}
@@ -266,8 +268,8 @@ func (mc MemcachedClient) worker(errorsCh chan int, dry bool) {
 		ai := <-mc.ch
 		if ai == nil {
 			errorsCh <- SentinelFlag
-			log.Fatalf("%v - got SentonelFlag", mc.addr)
-			return
+			log.Printf("%v - got SentinelFlag", mc.addr)
+			break
 		}
 
 		ua := &appsinstalled.UserApps{
@@ -280,7 +282,8 @@ func (mc MemcachedClient) worker(errorsCh chan int, dry bool) {
 
 		if dry {
 			readyLines += 1
-			if readyLines % 10000 == 0 {
+			if readyLines % 250000 == 0 {
+				errorsCh <- 1
 				log.Printf("%v - ready %v lines", mc.addr, readyLines)
 			}
 		} else {
