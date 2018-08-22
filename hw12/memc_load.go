@@ -9,28 +9,24 @@ import (
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (
-	MaxActiveGoroutines = 1000
-	MaxMemcConns        = 10
+	ChannelSize			= 100
 	NormalErrRate       = 0.01
+	SentinelFlag		= -1
 )
 
 type MemcachedClient struct {
 	addr string
 	client memcache.Client
-	sem    semaphore.Weighted
+	ch chan *AppsInstalled
 }
 
 type AppsInstalled struct {
@@ -78,6 +74,11 @@ func main() {
 	for _, filePath := range files {
 		processFile(filePath, memcClients, *isDry)
 	}
+
+	// Close memcachedClient's channels
+	for _, memCl := range memcClients {
+		close(memCl.ch)
+	}
 }
 
 func prototest() {
@@ -120,22 +121,22 @@ func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]Memcach
 	memcClients["idfa"] = MemcachedClient{
 		idfa,
 		*memcache.New(idfa),
-		*semaphore.NewWeighted(int64(MaxMemcConns)),
+		make(chan *AppsInstalled, ChannelSize),
 	}
 	memcClients["gaid"] = MemcachedClient{
 		gaid,
 		*memcache.New(gaid),
-		*semaphore.NewWeighted(int64(MaxMemcConns)),
+		make(chan *AppsInstalled, ChannelSize),
 	}
 	memcClients["adid"] = MemcachedClient{
 		adid,
 		*memcache.New(adid),
-		*semaphore.NewWeighted(int64(MaxMemcConns)),
+		make(chan *AppsInstalled, ChannelSize),
 	}
 	memcClients["dvid"] = MemcachedClient{
 		dvid,
 		*memcache.New(dvid),
-		*semaphore.NewWeighted(int64(MaxMemcConns)),
+		make(chan *AppsInstalled, ChannelSize),
 	}
 
 	return memcClients
@@ -154,13 +155,21 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 
 	// Run goroutine for counting errors from other goroutines-workers
 	errorsCh := make(chan int)
-	sentinel := make(chan int)
-	go countErrors(errorsCh, sentinel)
+	errorsResultCh := make(chan int)
+	go countErrorsWorker(errorsCh, errorsResultCh, len(memcClients))
+
+	// Run memcached clients workers
+	for clName, memcCl := range memcClients {
+		log.Printf("%v - start worker", clName)
+		go memcCl.worker(errorsCh, dry)
+	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("Can't open file: %v", err)
-		sentinel <- 0
+		for _, memcCl := range memcClients {
+			memcCl.ch <- nil
+		}
 		return
 	}
 	defer file.Close()
@@ -168,17 +177,15 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 	gz, err := gzip.NewReader(file)
 	if err != nil {
 		log.Printf("Can't create a new Reader %v", err)
+		for _, memcCl := range memcClients {
+			memcCl.ch <- nil
+		}
 		return
 	}
 	defer gz.Close()
 
 	// Read file and parse every line in loop.
-	// For every success parsed line create goroutine updateMemcache
-	// There can't be goroutines more than MaxActiveGoroutines
-	// and connections more than MaxMemcConns for each memcClient
-	// at the same time
-	var wgr sync.WaitGroup
-	var activeGoroutines uint32
+	// Every success parsed line send to according MemcachedClient
 	scanner := bufio.NewScanner(gz)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -192,32 +199,26 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 			continue
 		}
 
-		memcClient, ok := memcClients[ai.devType]
+		memcCl, ok := memcClients[ai.devType]
 		if !ok {
 			errorsCount += 1
 			log.Printf("Unknown device type: %v", ai.devType)
 			continue
 		}
 
-		for {
-			activeGoroutinesNow := atomic.LoadUint32(&activeGoroutines)
-			if activeGoroutinesNow < MaxActiveGoroutines {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		go memcClient.updateMemcache(ai, &activeGoroutines, errorsCh, dry)
+		memcCl.ch <- &ai
 
 		processed += 1
-		if processed%10000 == 0 {
+		if processed%100000 == 0 {
 			log.Printf("%v: ready %v lines", filePath, processed)
 		}
 	}
 
-	wgr.Wait()
+	for _, memcCl := range memcClients {
+		memcCl.ch <- nil
+	}
 
-	sentinel <- 0
-	errCount := <-errorsCh
+	errCount := <-errorsResultCh
 	processed -= errCount
 	errorsCount += errCount
 
@@ -228,64 +229,70 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 		} else {
 			log.Fatalf("%v: Fail. Error rate (%v)", filePath, errRate)
 		}
-
 	}
 	renameFile(filePath)
 }
 
-// Count errors from updateMemcache goroutines
-// Exit, when receive sentinel
-// Help Links:
-// https://go-tour-ru-ru.appspot.com/concurrency/5
-func countErrors(errorsCh chan int, sentinel chan int) {
+// Count errors from MemcachedClient workers
+// Exit, when receive N SentinelFlags, where N == workersCount
+func countErrorsWorker(errorsCh, errorsResultCh chan int, workersCount int) {
 	var errorsCount int
+	var workersCompleted int
+
 	for {
-		select {
-		case <-errorsCh:
-			errorsCount += 1
-		case <-sentinel:
+		err := <-errorsCh
+		if err > 0 {
+			errorsCount += err
+		} else if err == SentinelFlag {
+			workersCompleted += 1
+			if workersCompleted == workersCount {
+				errorsResultCh <- errorsCount
+				return
+			}
+		} else {
+			log.Fatalf("Unknown code in errorsCh channel: %v", err)
 			errorsCh <- errorsCount
 			return
 		}
 	}
 }
 
-// Update mc with ai value
-// Help Links:
-// https://gobyexample.com/atomic-counters
-// https://play.golang.org/p/6eFjx029Tmm
-// https://godoc.org/golang.org/x/sync/semaphore
-func (mc *MemcachedClient) updateMemcache(ai AppsInstalled, activeGr *uint32, errorsCh chan int, dry bool) {
-	atomic.AddUint32(activeGr, 1)
-	defer atomic.AddUint32(activeGr, ^uint32(0))
-
-	ua := &appsinstalled.UserApps{
-		Lat:  proto.Float64(ai.lat),
-		Lon:  proto.Float64(ai.lon),
-		Apps: ai.apps,
-	}
-	key := fmt.Sprintf("%s:%s", ai.devType, ai.devId)
-	packed, _ := proto.Marshal(ua)
-
-	if dry {
-		log.Printf("%s -> %s", key, mc.addr)
-	} else {
-		if !mc.sem.TryAcquire(1) {
-			log.Fatalf("Can't acquire semaphore for: %v", mc.addr)
-			errorsCh <- 1
+// MemcachedClient worker - read AppsInstalled structs
+// from channel and send to according memcached
+func (mc MemcachedClient) worker(errorsCh chan int, dry bool) {
+	var readyLines int
+	log.Printf("%v started", mc.addr)
+	for {
+		ai := <-mc.ch
+		if ai == nil {
+			errorsCh <- SentinelFlag
+			log.Fatalf("%v - got SentonelFlag", mc.addr)
 			return
 		}
 
-		err := mc.client.Set(&memcache.Item{
-			Key: key,
-			Value: packed,
-		})
-		if err != nil {
-			log.Fatalf("Can't set %s to memc: %s", key, mc.addr)
-			errorsCh <- 1
-			return
+		ua := &appsinstalled.UserApps{
+			Lat:  proto.Float64(ai.lat),
+			Lon:  proto.Float64(ai.lon),
+			Apps: ai.apps,
 		}
-		mc.sem.Release(1)
+		key := fmt.Sprintf("%s:%s", ai.devType, ai.devId)
+		packed, _ := proto.Marshal(ua)
+
+		if dry {
+			readyLines += 1
+			if readyLines % 10000 == 0 {
+				log.Printf("%v - ready %v lines", mc.addr, readyLines)
+			}
+		} else {
+			err := mc.client.Set(&memcache.Item{
+				Key: key,
+				Value: packed,
+			})
+			if err != nil {
+				log.Fatalf("Can't set %s to memc: %s", key, mc.addr)
+				errorsCh <- 1
+			}
+		}
 	}
 }
 
