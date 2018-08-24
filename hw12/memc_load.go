@@ -107,7 +107,6 @@ func main() {
 
 // Read file line by line
 // Parse each line to AppsInstalled struct and send it to MemcachedClient
-// Count errors from goroutines in separate goroutine
 func processFile(filePath string, memcClients map[string]MemcachedClient, statCh chan Stat, wgr *sync.WaitGroup) {
 	log.Printf("%v: start processing", filePath)
 
@@ -189,6 +188,7 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, statCh
 
 // MemcachedClient worker - read AppsInstalled structs
 // from channel and send to according memcached
+// Count errors by files
 func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool) {
 	log.Printf("%v started", mc.addr)
 
@@ -266,6 +266,7 @@ func createStatMap(filePaths []string) map[string]*Stat {
 	return filesStatMap
 }
 
+// Receive stat by files from channels of workers and log it
 func getAndLogStat(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) {
 	filesStatMap := createStatMap(filePaths)
 	totalStat := Stat{
