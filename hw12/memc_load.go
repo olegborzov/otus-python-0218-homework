@@ -101,7 +101,7 @@ func main() {
 		memCl.ch <- nil
 	}
 
-	// Got stat from stat channel and write to log
+	// Get stat from stat channels and write to log
 	getAndLogStat(filePaths, memcClients, statCh)
 }
 
@@ -111,6 +111,7 @@ Worker funcs
 
 // Read file line by line
 // Parse each line to AppsInstalled struct and send it to MemcachedClient
+// Send file stat to statCh
 func processFileWorker(filePath string, memcClients map[string]MemcachedClient, statCh chan Stat, wgr *sync.WaitGroup) {
 	log.Printf("%v: start processing", filePath)
 
@@ -192,7 +193,7 @@ func processFileWorker(filePath string, memcClients map[string]MemcachedClient, 
 
 // MemcachedClient worker - read AppsInstalled structs
 // from channel and send to according memcached
-// Count errors by files
+// Count errors by files and send to statCh
 func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool) {
 	log.Printf("%v started", mc.addr)
 
