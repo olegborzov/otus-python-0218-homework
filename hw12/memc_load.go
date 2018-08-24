@@ -92,7 +92,7 @@ func main() {
 	var wgr sync.WaitGroup
 	for _, filePath := range filePaths {
 		wgr.Add(1)
-		go processFile(filePath, memcClients, statCh, &wgr)
+		go processFileWorker(filePath, memcClients, statCh, &wgr)
 	}
 	wgr.Wait()
 
@@ -105,9 +105,13 @@ func main() {
 	getAndLogStat(filePaths, memcClients, statCh)
 }
 
+/* ================
+Worker funcs
+================ */
+
 // Read file line by line
 // Parse each line to AppsInstalled struct and send it to MemcachedClient
-func processFile(filePath string, memcClients map[string]MemcachedClient, statCh chan Stat, wgr *sync.WaitGroup) {
+func processFileWorker(filePath string, memcClients map[string]MemcachedClient, statCh chan Stat, wgr *sync.WaitGroup) {
 	log.Printf("%v: start processing", filePath)
 
 	fileStat := Stat{
@@ -227,6 +231,10 @@ func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool)
 	}
 }
 
+/* ================
+Create funcs
+================ */
+
 func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
 	memcClients := make(map[string]MemcachedClient)
 	memcClients["idfa"] = MemcachedClient{
@@ -252,6 +260,10 @@ func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]Memcach
 
 	return memcClients
 }
+
+/* ================
+Stat logging funcs
+================ */
 
 func createStatMap(filePaths []string) map[string]*Stat {
 	filesStatMap := make(map[string]*Stat)
@@ -312,6 +324,10 @@ func logFileStat(fileStat Stat) {
 		}
 	}
 }
+
+/* ================
+Other funcs
+================ */
 
 // Parse line from file to AppsInstalled struct
 // Return error if can't parse line
