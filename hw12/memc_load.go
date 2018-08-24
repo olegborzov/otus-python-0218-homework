@@ -261,10 +261,6 @@ func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]Memcach
 	return memcClients
 }
 
-/* ================
-Stat logging funcs
-================ */
-
 func createStatMap(filePaths []string) map[string]*Stat {
 	filesStatMap := make(map[string]*Stat)
 	for _, filePath := range filePaths {
@@ -277,6 +273,10 @@ func createStatMap(filePaths []string) map[string]*Stat {
 
 	return filesStatMap
 }
+
+/* ================
+Stat logging funcs
+================ */
 
 // Receive stat by files from channels of workers and log it
 func getAndLogStat(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) {
