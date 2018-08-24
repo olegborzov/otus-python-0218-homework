@@ -101,7 +101,7 @@ func main() {
 		memCl.ch <- nil
 	}
 
-	// Get stat from stat channels and write to log
+	// Get stat by files from stat channels and write to log
 	getAndLogStat(filePaths, memcClients, statCh)
 }
 
@@ -120,6 +120,7 @@ func processFileWorker(filePath string, memcClients map[string]MemcachedClient, 
 		processed:0,
 		filePath:filePath,
 	}
+
 	defer func(statCh chan Stat, fileStat Stat){
 		log.Printf("%v ready", filePath)
 		statCh <- fileStat
@@ -127,7 +128,6 @@ func processFileWorker(filePath string, memcClients map[string]MemcachedClient, 
 		renameFile(filePath)
 	}(statCh, fileStat)
 
-	// Run goroutine for counting errors from other goroutines-workers
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("Can't open file: %v", err)
@@ -143,7 +143,7 @@ func processFileWorker(filePath string, memcClients map[string]MemcachedClient, 
 	defer gz.Close()
 
 	// Read file and parse every line in loop.
-	// Every success parsed line send to according MemcachedClient
+	// Every successful parsed line send to the according MemcachedClient
 	scanner := bufio.NewScanner(gz)
 	for scanner.Scan() {
 		fileStat.processed += 1
@@ -192,7 +192,7 @@ func processFileWorker(filePath string, memcClients map[string]MemcachedClient, 
 }
 
 // MemcachedClient worker - read AppsInstalled structs
-// from channel and send to according memcached
+// from channel and send to according memcached.
 // Count errors by files and send to statCh
 func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool) {
 	log.Printf("%v started", mc.addr)
@@ -279,7 +279,7 @@ func createStatMap(filePaths []string) map[string]*Stat {
 Stat logging funcs
 ================ */
 
-// Receive stat by files from channels of workers and log it
+// Get stat by files from stat channels and write to log
 func getAndLogStat(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) {
 	filesStatMap := createStatMap(filePaths)
 	totalStat := Stat{
@@ -383,6 +383,7 @@ func renameFile(filePath string) {
 	os.Rename(filePath, newFilePath)
 }
 
+// Test parsing sample line and converting to protobuf
 func prototest() {
 	sample := "idfa\t1rfw452y52g2gq4g\t55.55\t42.42\t1423,43,567,3,7,23\ngaid\t7rfw452y52g2gq4g\t55.55\t42.42\t7423,424"
 
