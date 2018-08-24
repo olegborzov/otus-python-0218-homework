@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"log"
 	"os"
+	"sync"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -20,13 +21,12 @@ import (
 const (
 	ChannelSize   = 100
 	NormalErrRate = 0.01
-	SentinelFlag  = -1
 )
 
 type MemcachedClient struct {
 	addr   string
 	client memcache.Client
-	ch     chan *AppsInstalled
+	ch     chan *MemcacheUnit
 }
 
 type AppsInstalled struct {
@@ -35,6 +35,18 @@ type AppsInstalled struct {
 	lat     float64
 	lon     float64
 	apps    []uint32
+}
+
+type MemcacheUnit struct {
+	key string
+	data []byte
+	filePath string
+}
+
+type Stat struct {
+	filePath string
+	processed int
+	errors int
 }
 
 func main() {
@@ -63,110 +75,58 @@ func main() {
 	log.SetOutput(logfile)
 	defer logfile.Close()
 
-	memcClients := createMemcachedClientsMap(*idfa, *gaid, *adid, *dvid)
-
-	files, err := filepath.Glob(*filesPattern)
-	if err != nil || len(files) < 1 {
+	filePaths, err := filepath.Glob(*filesPattern)
+	if err != nil || len(filePaths) < 1 {
 		log.Fatalf("Files by pattern %v not found. Exit", *filesPattern)
 		return
 	}
 
-	for _, filePath := range files {
-		processFile(filePath, memcClients, *isDry)
+	// Create and run memcached clients workers
+	statCh := make(chan Stat, ChannelSize)
+	memcClients := createMemcachedClientsMap(*idfa, *gaid, *adid, *dvid)
+
+	for _, memcCl := range memcClients {
+		go memcCl.worker(statCh, filePaths, *isDry)
 	}
 
-	// Close memcachedClient's channels
+	var wgr sync.WaitGroup
+	for _, filePath := range filePaths {
+		wgr.Add(1)
+		go processFile(filePath, memcClients, statCh, &wgr)
+	}
+	wgr.Wait()
+
+	// Send sentinel flag to MemcachedClient workers
 	for _, memCl := range memcClients {
-		close(memCl.ch)
-	}
-}
-
-func prototest() {
-	sample := "idfa\t1rfw452y52g2gq4g\t55.55\t42.42\t1423,43,567,3,7,23\ngaid\t7rfw452y52g2gq4g\t55.55\t42.42\t7423,424"
-
-	for _, line := range strings.Split(sample, "\n") {
-		appsInstalled, _ := parseLine(line)
-		ua := &appsinstalled.UserApps{
-			Lat:  proto.Float64(appsInstalled.lat),
-			Lon:  proto.Float64(appsInstalled.lon),
-			Apps: appsInstalled.apps,
-		}
-		packed, err := proto.Marshal(ua)
-		if err != nil {
-			log.Fatalf("prototest error: can't Marshal ua")
-			os.Exit(1)
-		}
-
-		unpacked := &appsinstalled.UserApps{}
-		err = proto.Unmarshal(packed, unpacked)
-		if err != nil {
-			log.Fatalf("prototest error: can't Unmarshal packed ua")
-			os.Exit(1)
-		}
-
-		badLat := unpacked.GetLat() != ua.GetLat()
-		badLon := unpacked.GetLon() != ua.GetLon()
-		badApps := !reflect.DeepEqual(ua.GetApps(), unpacked.GetApps())
-		if badLat || badLon || badApps {
-			log.Fatalf("prototest error: unpacked and ua values are different")
-			os.Exit(1)
-		}
-	}
-	log.Print("prototest success")
-	os.Exit(0)
-}
-
-func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
-	memcClients := make(map[string]MemcachedClient)
-	memcClients["idfa"] = MemcachedClient{
-		idfa,
-		*memcache.New(idfa),
-		make(chan *AppsInstalled, ChannelSize),
-	}
-	memcClients["gaid"] = MemcachedClient{
-		gaid,
-		*memcache.New(gaid),
-		make(chan *AppsInstalled, ChannelSize),
-	}
-	memcClients["adid"] = MemcachedClient{
-		adid,
-		*memcache.New(adid),
-		make(chan *AppsInstalled, ChannelSize),
-	}
-	memcClients["dvid"] = MemcachedClient{
-		dvid,
-		*memcache.New(dvid),
-		make(chan *AppsInstalled, ChannelSize),
+		memCl.ch <- nil
 	}
 
-	return memcClients
+	// Got stat from stat channel and write to log
+	getAndLogStat(filePaths, memcClients, statCh)
 }
 
 // Read file line by line
 // Parse each line to AppsInstalled struct and send it to MemcachedClient
 // Count errors from goroutines in separate goroutine
-func processFile(filePath string, memcClients map[string]MemcachedClient, dry bool) {
+func processFile(filePath string, memcClients map[string]MemcachedClient, statCh chan Stat, wgr *sync.WaitGroup) {
 	log.Printf("%v: start processing", filePath)
 
-	processed, errorsCount := 0, 0
+	fileStat := Stat{
+		errors:0,
+		processed:0,
+		filePath:filePath,
+	}
+	defer func(statCh chan Stat, fileStat Stat){
+		log.Printf("%v ready", filePath)
+		statCh <- fileStat
+		wgr.Done()
+		renameFile(filePath)
+	}(statCh, fileStat)
 
 	// Run goroutine for counting errors from other goroutines-workers
-	errorsCh := make(chan int)
-	errorsResultCh := make(chan int)
-	go countErrorsWorker(errorsCh, errorsResultCh, len(memcClients))
-
-	// Run memcached clients workers
-	for clName, memcCl := range memcClients {
-		log.Printf("%v - start worker", clName)
-		go memcCl.worker(errorsCh, dry)
-	}
-
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("Can't open file: %v", err)
-		for _, memcCl := range memcClients {
-			memcCl.ch <- nil
-		}
 		return
 	}
 	defer file.Close()
@@ -174,9 +134,6 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 	gz, err := gzip.NewReader(file)
 	if err != nil {
 		log.Printf("Can't create a new Reader %v", err)
-		for _, memcCl := range memcClients {
-			memcCl.ch <- nil
-		}
 		return
 	}
 	defer gz.Close()
@@ -185,6 +142,8 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 	// Every success parsed line send to according MemcachedClient
 	scanner := bufio.NewScanner(gz)
 	for scanner.Scan() {
+		fileStat.processed += 1
+
 		line := scanner.Text()
 		if len(line) < 1 {
 			continue
@@ -192,80 +151,15 @@ func processFile(filePath string, memcClients map[string]MemcachedClient, dry bo
 
 		ai, err := parseLine(line)
 		if err != nil {
-			errorsCount += 1
+			fileStat.errors += 1
 			continue
 		}
 
 		memcCl, ok := memcClients[ai.devType]
 		if !ok {
-			errorsCount += 1
+			fileStat.errors += 1
 			log.Printf("Unknown device type: %v", ai.devType)
 			continue
-		}
-
-		memcCl.ch <- &ai
-
-		processed += 1
-		if processed%1000000 == 0 {
-			log.Printf("%v: ready %v lines", filePath, processed)
-		}
-	}
-
-	for _, memcCl := range memcClients {
-		memcCl.ch <- nil
-	}
-
-	errCount := <-errorsResultCh
-	processed -= errCount
-	errorsCount += errCount
-
-	if processed > 0 {
-		errRate := float64(errorsCount) / float64(processed)
-		if errRate <= NormalErrRate {
-			log.Printf("%v: Success. Error rate %v/%v = %v", filePath, errorsCount, processed, errRate)
-		} else {
-			log.Fatalf("%v: Fail. Error rate %v/%v = %v", filePath, errorsCount, processed, errRate)
-		}
-	}
-	renameFile(filePath)
-}
-
-// Count errors from MemcachedClient workers
-// Exit, when receive N SentinelFlags, where N == workersCount
-func countErrorsWorker(errorsCh, errorsResultCh chan int, workersCount int) {
-	var errorsCount int
-	var workersCompleted int
-
-	for {
-		err := <-errorsCh
-		if err > 0 {
-			errorsCount += err
-		} else if err == SentinelFlag {
-			workersCompleted += 1
-			if workersCompleted == workersCount {
-				log.Printf("Completed all workers")
-				errorsResultCh <- errorsCount
-				return
-			}
-		} else {
-			log.Fatalf("Unknown code in errorsCh channel: %v", err)
-			errorsCh <- errorsCount
-			return
-		}
-	}
-}
-
-// MemcachedClient worker - read AppsInstalled structs
-// from channel and send to according memcached
-func (mc MemcachedClient) worker(errorsCh chan int, dry bool) {
-	var readyLines int
-	log.Printf("%v started", mc.addr)
-	for {
-		ai := <-mc.ch
-		if ai == nil {
-			errorsCh <- SentinelFlag
-			log.Printf("%v - got SentinelFlag", mc.addr)
-			break
 		}
 
 		ua := &appsinstalled.UserApps{
@@ -273,24 +167,147 @@ func (mc MemcachedClient) worker(errorsCh chan int, dry bool) {
 			Lon:  proto.Float64(ai.lon),
 			Apps: ai.apps,
 		}
-		key := fmt.Sprintf("%s:%s", ai.devType, ai.devId)
-		packed, _ := proto.Marshal(ua)
+		packed, err := proto.Marshal(ua)
+		if err != nil {
+			fileStat.errors += 1
+			continue
+		}
+
+		mu := MemcacheUnit{
+			key:fmt.Sprintf("%s:%s", ai.devType, ai.devId),
+			data:packed,
+			filePath:filePath,
+		}
+
+		memcCl.ch <- &mu
+
+		if fileStat.processed%1000000 == 0 {
+			log.Printf("%v: ready %v lines", filePath, fileStat.processed)
+		}
+	}
+}
+
+// MemcachedClient worker - read AppsInstalled structs
+// from channel and send to according memcached
+func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool) {
+	log.Printf("%v started", mc.addr)
+
+	filesStatMap := createStatMap(filePaths)
+	defer func(statCh chan Stat, filesStat map[string]*Stat) {
+		log.Printf("%v - got SentinelFlag", mc.addr)
+		for _, statMap := range filesStat {
+			statCh <- *statMap
+		}
+	}(statCh, filesStatMap)
+
+	var readyLines int
+	for {
+		mu := <-mc.ch
+
+		if mu == nil {
+			break
+		}
 
 		if dry {
 			readyLines += 1
-			if readyLines%250000 == 0 {
-				errorsCh <- 1
-				log.Printf("%v - ready %v lines", mc.addr, readyLines)
+			if readyLines % 100000 == 0 {
+				log.Printf("%v: ready %v lines", mc.addr, readyLines)
 			}
+			filesStatMap[mu.filePath].processed += 1
 		} else {
 			err := mc.client.Set(&memcache.Item{
-				Key:   key,
-				Value: packed,
+				Key:   mu.key,
+				Value: mu.data,
 			})
 			if err != nil {
-				log.Fatalf("Can't set %s to memc: %s", key, mc.addr)
-				errorsCh <- 1
+				filesStatMap[mu.filePath].errors += 1
+				log.Fatalf("Can't set %v to memc: %v", mu.key, mc.addr)
 			}
+		}
+	}
+}
+
+func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
+	memcClients := make(map[string]MemcachedClient)
+	memcClients["idfa"] = MemcachedClient{
+		idfa,
+		*memcache.New(idfa),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+	memcClients["gaid"] = MemcachedClient{
+		gaid,
+		*memcache.New(gaid),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+	memcClients["adid"] = MemcachedClient{
+		adid,
+		*memcache.New(adid),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+	memcClients["dvid"] = MemcachedClient{
+		dvid,
+		*memcache.New(dvid),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+
+	return memcClients
+}
+
+func createStatMap(filePaths []string) map[string]*Stat {
+	filesStatMap := make(map[string]*Stat)
+	for _, filePath := range filePaths {
+		filesStatMap[filePath] = &Stat{
+			filePath:filePath,
+			processed:0,
+			errors:0,
+		}
+	}
+
+	return filesStatMap
+}
+
+func getAndLogStat(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) {
+	filesStatMap := createStatMap(filePaths)
+	totalStat := Stat{
+		processed:0,
+		errors:0,
+		filePath:"Total",
+	}
+	for i:=0; i<(len(memcClients)+len(filePaths)); i++ {
+		fileStat := <-statCh
+
+		filesStatMap[fileStat.filePath].processed += fileStat.processed
+		filesStatMap[fileStat.filePath].errors += fileStat.errors
+
+		totalStat.processed += fileStat.processed
+		totalStat.errors += fileStat.errors
+	}
+
+	for _, fileStat := range filesStatMap {
+		logFileStat(*fileStat)
+	}
+	logFileStat(totalStat)
+}
+
+func logFileStat(fileStat Stat) {
+	if fileStat.processed > 0 {
+		errRate := float64(fileStat.errors) / float64(fileStat.processed)
+		if errRate <= NormalErrRate {
+			log.Printf(
+				"%v: Success. Error rate %v/%v = %v",
+				fileStat.filePath,
+				fileStat.errors,
+				fileStat.processed,
+				errRate,
+			)
+		} else {
+			log.Fatalf(
+				"%v: Fail. Error rate %v/%v = %v",
+				fileStat.filePath,
+				fileStat.errors,
+				fileStat.processed,
+				errRate,
+			)
 		}
 	}
 }
@@ -346,4 +363,39 @@ func renameFile(filePath string) {
 	dirPath, fileName := filepath.Split(filePath)
 	newFilePath := dirPath + "." + fileName
 	os.Rename(filePath, newFilePath)
+}
+
+func prototest() {
+	sample := "idfa\t1rfw452y52g2gq4g\t55.55\t42.42\t1423,43,567,3,7,23\ngaid\t7rfw452y52g2gq4g\t55.55\t42.42\t7423,424"
+
+	for _, line := range strings.Split(sample, "\n") {
+		appsInstalled, _ := parseLine(line)
+		ua := &appsinstalled.UserApps{
+			Lat:  proto.Float64(appsInstalled.lat),
+			Lon:  proto.Float64(appsInstalled.lon),
+			Apps: appsInstalled.apps,
+		}
+		packed, err := proto.Marshal(ua)
+		if err != nil {
+			log.Fatalf("prototest error: can't Marshal ua")
+			os.Exit(1)
+		}
+
+		unpacked := &appsinstalled.UserApps{}
+		err = proto.Unmarshal(packed, unpacked)
+		if err != nil {
+			log.Fatalf("prototest error: can't Unmarshal packed ua")
+			os.Exit(1)
+		}
+
+		badLat := unpacked.GetLat() != ua.GetLat()
+		badLon := unpacked.GetLon() != ua.GetLon()
+		badApps := !reflect.DeepEqual(ua.GetApps(), unpacked.GetApps())
+		if badLat || badLon || badApps {
+			log.Fatalf("prototest error: unpacked and ua values are different")
+			os.Exit(1)
+		}
+	}
+	log.Print("prototest success")
+	os.Exit(0)
 }
