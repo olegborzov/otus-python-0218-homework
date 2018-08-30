@@ -98,11 +98,12 @@ func main() {
 
 	// Send sentinel flag to MemcachedClient workers
 	for _, memCl := range memcClients {
-		memCl.ch <- nil
+		close(memCl.ch)
 	}
 
 	// Get stat by files from stat channels and write to log
-	getAndLogStat(filePaths, memcClients, statCh)
+	statMap := getStatMap(filePaths, memcClients, statCh)
+	logStatMap(statMap)
 }
 
 /* ================
@@ -197,7 +198,7 @@ func processFileWorker(filePath string, memcClients map[string]MemcachedClient, 
 func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool) {
 	log.Printf("%v started", mc.addr)
 
-	filesStatMap := createStatMap(filePaths)
+	filesStatMap := createEmptyStatMap(filePaths)
 	defer func(statCh chan Stat, filesStat map[string]*Stat) {
 		log.Printf("%v - got SentinelFlag", mc.addr)
 		for _, statMap := range filesStat {
@@ -206,13 +207,7 @@ func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool)
 	}(statCh, filesStatMap)
 
 	var readyLines int
-	for {
-		mu := <-mc.ch
-
-		if mu == nil {
-			break
-		}
-
+	for mu := range mc.ch {
 		if dry {
 			readyLines += 1
 			if readyLines % 100000 == 0 {
@@ -231,10 +226,6 @@ func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool)
 		}
 	}
 }
-
-/* ================
-Create funcs
-================ */
 
 func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
 	memcClients := make(map[string]MemcachedClient)
@@ -262,7 +253,11 @@ func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]Memcach
 	return memcClients
 }
 
-func createStatMap(filePaths []string) map[string]*Stat {
+/* ================
+Stat funcs
+================ */
+
+func createEmptyStatMap(filePaths []string) map[string]*Stat {
 	filesStatMap := make(map[string]*Stat)
 	for _, filePath := range filePaths {
 		filesStatMap[filePath] = &Stat{
@@ -275,53 +270,45 @@ func createStatMap(filePaths []string) map[string]*Stat {
 	return filesStatMap
 }
 
-/* ================
-Stat logging funcs
-================ */
-
 // Get stat by files from stat channels and write to log
-func getAndLogStat(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) {
-	filesStatMap := createStatMap(filePaths)
-	totalStat := Stat{
-		processed:0,
-		errors:0,
-		filePath:"Total",
-	}
+func getStatMap(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) map[string]*Stat {
+	filePaths = append(filePaths, "total")
+	filesStatMap := createEmptyStatMap(filePaths)
 	for i:=0; i<(len(memcClients)+len(filePaths)); i++ {
 		fileStat := <-statCh
 
 		filesStatMap[fileStat.filePath].processed += fileStat.processed
 		filesStatMap[fileStat.filePath].errors += fileStat.errors
 
-		totalStat.processed += fileStat.processed
-		totalStat.errors += fileStat.errors
+		filesStatMap["total"].processed += fileStat.processed
+		filesStatMap["total"].errors += fileStat.errors
 	}
 
-	for _, fileStat := range filesStatMap {
-		logFileStat(*fileStat)
-	}
-	logFileStat(totalStat)
+	return filesStatMap
 }
 
-func logFileStat(fileStat Stat) {
-	if fileStat.processed > 0 {
-		errRate := float64(fileStat.errors) / float64(fileStat.processed)
-		if errRate <= NormalErrRate {
-			log.Printf(
-				"%v: Success. Error rate %v/%v = %v",
-				fileStat.filePath,
-				fileStat.errors,
-				fileStat.processed,
-				errRate,
-			)
-		} else {
-			log.Fatalf(
-				"%v: Fail. Error rate %v/%v = %v",
-				fileStat.filePath,
-				fileStat.errors,
-				fileStat.processed,
-				errRate,
-			)
+// Log stat by files and total stat
+func logStatMap(statMap map[string]*Stat) {
+	for _, fileStat := range statMap {
+		if fileStat.processed > 0 {
+			errRate := float64(fileStat.errors) / float64(fileStat.processed)
+			if errRate <= NormalErrRate {
+				log.Printf(
+					"%v: Success. Error rate %v/%v = %v",
+					fileStat.filePath,
+					fileStat.errors,
+					fileStat.processed,
+					errRate,
+				)
+			} else {
+				log.Fatalf(
+					"%v: Fail. Error rate %v/%v = %v",
+					fileStat.filePath,
+					fileStat.errors,
+					fileStat.processed,
+					errRate,
+				)
+			}
 		}
 	}
 }
