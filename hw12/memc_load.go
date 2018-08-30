@@ -110,6 +110,32 @@ func main() {
 Worker funcs
 ================ */
 
+func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
+	memcClients := make(map[string]MemcachedClient)
+	memcClients["idfa"] = MemcachedClient{
+		idfa,
+		*memcache.New(idfa),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+	memcClients["gaid"] = MemcachedClient{
+		gaid,
+		*memcache.New(gaid),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+	memcClients["adid"] = MemcachedClient{
+		adid,
+		*memcache.New(adid),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+	memcClients["dvid"] = MemcachedClient{
+		dvid,
+		*memcache.New(dvid),
+		make(chan *MemcacheUnit, ChannelSize),
+	}
+
+	return memcClients
+}
+
 // Read file line by line
 // Parse each line to AppsInstalled struct and send it to MemcachedClient
 // Send file stat to statCh
@@ -225,32 +251,6 @@ func (mc MemcachedClient) worker(statCh chan Stat, filePaths []string, dry bool)
 			}
 		}
 	}
-}
-
-func createMemcachedClientsMap(idfa, gaid, adid, dvid string) map[string]MemcachedClient {
-	memcClients := make(map[string]MemcachedClient)
-	memcClients["idfa"] = MemcachedClient{
-		idfa,
-		*memcache.New(idfa),
-		make(chan *MemcacheUnit, ChannelSize),
-	}
-	memcClients["gaid"] = MemcachedClient{
-		gaid,
-		*memcache.New(gaid),
-		make(chan *MemcacheUnit, ChannelSize),
-	}
-	memcClients["adid"] = MemcachedClient{
-		adid,
-		*memcache.New(adid),
-		make(chan *MemcacheUnit, ChannelSize),
-	}
-	memcClients["dvid"] = MemcachedClient{
-		dvid,
-		*memcache.New(dvid),
-		make(chan *MemcacheUnit, ChannelSize),
-	}
-
-	return memcClients
 }
 
 /* ================
