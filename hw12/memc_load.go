@@ -96,7 +96,7 @@ func main() {
 	}
 	wgr.Wait()
 
-	// Send sentinel flag to MemcachedClient workers
+	// Close MemcachedClient channels
 	for _, memCl := range memcClients {
 		close(memCl.ch)
 	}
@@ -104,6 +104,7 @@ func main() {
 	// Get stat by files from stat channels and write to log
 	statMap := getStatMap(filePaths, memcClients, statCh)
 	logStatMap(statMap)
+	close(statCh)
 }
 
 /* ================
@@ -270,7 +271,7 @@ func createEmptyStatMap(filePaths []string) map[string]*Stat {
 	return filesStatMap
 }
 
-// Get stat by files from stat channels and write to log
+// Get stat by files from stat channels
 func getStatMap(filePaths []string, memcClients map[string]MemcachedClient, statCh chan Stat) map[string]*Stat {
 	filePaths = append(filePaths, "total")
 	filesStatMap := createEmptyStatMap(filePaths)
