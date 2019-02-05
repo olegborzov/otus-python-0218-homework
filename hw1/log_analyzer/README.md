@@ -1,5 +1,5 @@
 # Log Analyzer
-Script for parse and analyze ui_logs.
+Script for parsing and analyzing logs.
 
 ### How to run: 
 Print in terminal:
