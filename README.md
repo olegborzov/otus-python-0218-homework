@@ -3,7 +3,7 @@
 Описание к заданиям приводятся на английском языке в соответствии с требованиями курса.<br>
 https://otus.ru/lessons/razrabotchik-python/
 
-## Author
+## Автор
 Борзов Олег<br>
 http://olegborzov.ru
 
