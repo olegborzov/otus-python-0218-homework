@@ -8,7 +8,7 @@ http://olegborzov.ru
 
 ## Структура репозитория
 #### HW1
-https://github.com/olegborzov/otus-python-0218-homework/tree/master/hw1
+https://github.com/olegborzov/otus-python-0218-homework/tree/master/hw1 <br>
 Скрипт для парсинга и анализа логов.<br>
 Декораторы.<br>
 Скрипт для сравнения рук в игре Покер.
