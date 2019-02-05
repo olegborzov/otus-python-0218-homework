@@ -1,7 +1,6 @@
-# Python Developer course. 2018-02
-My homeworks
+# Homeworks for Otus course "Python developer". 2018-02
+https://otus.ru/lessons/razrabotchik-python/
 
 ### Author
-Борзов Олег
-
-slack: Oleg Borzov (olegborzov)
+Борзов Олег<br>
+http://olegborzov.ru
