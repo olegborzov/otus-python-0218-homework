@@ -11,7 +11,7 @@ http://olegborzov.ru
 #### HW1
 https://github.com/olegborzov/otus-python-0218-homework/tree/master/hw1 <br>
 Скрипт для парсинга и анализа логов.<br>
-Декораторы.<br>
+Декораторы: disable, countcalls, memoize, n_ary, trace (описания декораторов - в файле ДЗ).<br>
 Скрипт для сравнения рук в игре Покер.
 
 #### HW2
