@@ -27,7 +27,7 @@ https://github.com/olegborzov/otus-python-0218-homework/tree/master/hw3 <br>
 
 #### HW4
 https://github.com/olegborzov/otus-python-0218-homework/tree/master/hw4 <br>
-**Стек**: Python 3, multiprocessing, threading, unittest<br>
+**Стек**: multiprocessing, threading, unittest<br>
 Многопоточный HTTP-сервер на Pure Python с поддержкой методов GET и HEAD.
 
 #### HW5
@@ -42,7 +42,7 @@ https://github.com/olegborzov/otus_hasker <br>
 
 #### HW7
 https://github.com/olegborzov/otus-python-0218-homework/tree/master/hw7 <br>
-**Стек**: Python 3, Jupyter Notebook, Pandas, sklearn, NumPy, matplotlib, SeaBorn<br>
+**Стек**: Jupyter Notebook, Pandas, sklearn, NumPy, matplotlib, SeaBorn<br>
 Реализация логистической регрессии и бустинга над решающими деревьями для классификации отзывов на Amazon.
 
 #### HW8
