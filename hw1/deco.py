@@ -5,20 +5,20 @@ from functools import update_wrapper
 
 
 def disable(func):
-    '''
+    """
     Disable a decorator by re-assigning the decorator's name
     to this function. For example, to turn off memoization:
 
     memo = disable
-    '''
+    """
     return func
 
 
 def decorator(deco):
-    '''
+    """
     Decorate a decorator so that it inherits the docstrings
     and stuff from the function it's decorating.
-    '''
+    """
 
     def wrapper(func):
         return update_wrapper(deco(func), func)
@@ -28,7 +28,7 @@ def decorator(deco):
 
 @decorator
 def countcalls(func):
-    '''Decorator that counts calls made to the function decorated'''
+    """Decorator that counts calls made to the function decorated"""
     def wrapper(*args, **kwargs):
         wrapper.calls = getattr(wrapper, "calls", 0) + 1
         return func(*args, **kwargs)
@@ -38,10 +38,10 @@ def countcalls(func):
 
 @decorator
 def memo(func):
-    '''
+    """
     Memoize a function so that it caches all return values for
     faster future lookups.
-    '''
+    """
     def wrapper(*args, **kwargs):
         update_wrapper(wrapper, func)
         key = str(args) + str(kwargs)
@@ -56,17 +56,17 @@ def memo(func):
 
 @decorator
 def n_ary(func):
-    '''
+    """
     Given binary function f(x, y), return an n_ary function such
     that f(x, y, z) = f(x, f(y,z)), etc. Also allow f(x) = x.
-    '''
+    """
     def wrapper(*args):
         return args[0] if len(args) == 1 else func(args[0], wrapper(*args[1:]))
     return wrapper
 
 
 def trace(indent="___"):
-    '''Trace calls made to function decorated.
+    """Trace calls made to function decorated.
 
     @trace("____")
     def fib(n):
@@ -84,7 +84,7 @@ def trace(indent="___"):
     ____ <-- fib(1) == 1
      <-- fib(3) == 3
 
-    '''
+    """
     @decorator
     def decorate(func):
         def wrapper(*args, **kwargs):

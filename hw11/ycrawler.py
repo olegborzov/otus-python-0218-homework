@@ -311,7 +311,6 @@ def main():
     )
 
     loop.run_until_complete(asyncio.gather(*workers))
-    loop.close()
 
 
 def set_logging(dir_path: str = "./", verbose: bool = False):
