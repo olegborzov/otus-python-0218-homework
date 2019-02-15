@@ -15,7 +15,7 @@ hw4/doc_root/
 *.rar
 
 # FILES
-#*.pdf
+*.pdf
 
 
 # Byte-compiled / optimized / DLL files
